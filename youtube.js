@@ -150,7 +150,7 @@ registerPlugin({
     }
 
     sinusbot.on('chat', function(ev) {
-        if (ev.clientId == sinusbot.getBotId()) return;
+        if (ev.clientNick === sinusbot.getNick()) return;
         var is_valid = -1,
             validSGgroups = (typeof config.command_permissionsServergroups == 'undefined' || config.command_permissionsServergroups.length == 0 ? [] : config.command_permissionsServergroups.split('\n'));
         if (validSGgroups.length > 0) {
