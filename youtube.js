@@ -282,7 +282,7 @@ registerPlugin({
         var is_valid = -1, validSGgroups = youtube.config.plugin.server_groups;
         if (validSGgroups.length > 0) {
             client.getServerGroups().forEach(function(group) {
-                if (validSGgroups.indexOf(group.n) > -1) {
+                if (validSGgroups.indexOf(group.name()) > -1) {
                     is_valid++;
                 }
             });
