@@ -1,19 +1,22 @@
 registerPlugin({
     name: 'Osu!Stats',
-    version: '1.0',
+    version: '1.1',
     description: 'Osu! account statistics',
     author: 'NT5',
-    vars: {
-        api_key: {
+    vars: [
+        {
+            name: 'api_key',
             title: 'API KEY (http://osu.ppy.sh/p/api)',
             type: 'string'
         },
-        text_format: {
+        {
+            name: 'text_format',
             title: 'Message Format',
             type: 'multiline',
             placeholder: 'Player: {player_name} - Play Count: {play_count} - Ranked Score: {ranked_score} - Total Score: {total_score} - PP: {pp_raw} - Accuracy: {accuracy}% - Level: {level} - Country: {country}'
         },
-        default_gamemode: {
+        {
+            name: 'default_gamemode',
             title: 'Default gamemode',
             type: 'select',
             options: [
@@ -23,8 +26,14 @@ registerPlugin({
                 'Mania'
             ]
         }
-    }
+    ]
 }, function(sinusbot, config) {
+
+    var backend = require('backend');
+    var engine = require('engine');
+    var event = require('event');
+
+    // String format util
     if (!String.prototype.format) {
         String.prototype.format = function() {
             var str = this.toString();
@@ -40,98 +49,198 @@ registerPlugin({
         }
     }
 
-    function addCommas(nStr) {
-        nStr += '';
-        x = nStr.split('.');
-        x1 = x[0];
-        x2 = x.length > 1 ? '.' + x[1] : '';
-        var rgx = /(\d+)(\d{3})/;
-        while (rgx.test(x1)) {
-            x1 = x1.replace(rgx, '$1' + ',' + '$2');
-        }
-        return x1 + x2;
-    }
-    var api_url = "https://osu.ppy.sh/api/get_user?k={0}&u={1}&m={2}";
-    sinusbot.on('chat', function(ev) {
-        var send_msg = function(id, mode, msg) {
-            switch (mode) {
-                case 1:
-                    sinusbot.chatPrivate(id, msg);
-                    break;
-                case 2:
-                    sinusbot.chatChannel(msg);
-                    break;
-                default:
-                    sinusbot.chatServer(msg);
-                    break;
+    var osu = {
+        config: {
+            api: {
+                url: "https://osu.ppy.sh/api/get_user?k={0}&u={1}&m={2}",
+                key: config.api_key || false
+            },
+            plugin: {
+                regex: {
+                    cmd: /^!(\w+)\s*(.+)/,
+                    gamemode: /^(?:m|gamemode|mode):(standar|taiko|ctb|mania\*?)\s(.+)/i
+                },
+                trigger: 'osu',
+                gamemode: parseInt(config.default_gamemode),
+                message: config.text_format || 'Player: {player_name} - Play Count: {play_count} - Ranked Score: {ranked_score} - Total Score: {total_score} - PP: {pp_raw} - Accuracy: {accuracy}% - Level: {level} - Country: {country}'
             }
-        };
-        var self = sinusbot.getBotId();
-        if (ev.clientId == self) return;
-        var cmd, text, re = /^!(\w+)\s*(.+)/;
-        if ((text = re.exec(ev.msg)) !== null) {
-            cmd = text[1].toLowerCase();
-            text = text[2];
-            if (cmd === 'osu') {
-                if (text.length > 0) {
-                    if (typeof config.api_key == 'undefined' || config.api_key.length == 0) {
-                        send_msg(ev.clientId, ev.mode, "Invalid API KEY");
+        },
+        msg: function(options) {
+            options = (typeof options !== "object") ? {} : options;
+
+            options.text = options.text || '';
+            options.mode = options.mode || 0;
+            options.backend = options.backend || backend;
+            options.client = options.client || false;
+            options.channel = options.channel || false;
+
+            /*
+             TODO
+             - [BUG] Make sure if works in all cases
+            */
+            switch(options.mode) {
+                case 1: // Private client message
+                    if (options.client) {
+                        options.client.chat(options.text);
                     } else {
-                        var mod_re = /^(?:m|gamemode|mode):(standar|taiko|ctb|mania\*?)\s(.+)/i;
-                        var gamemode, player;
-                        if ((mod_re = mod_re.exec(text)) !== null) {
-                            gamemode = mod_re[1];
-                            player = mod_re[2];
-                            switch (gamemode.toLowerCase()) {
-                                case 'taiko':
-                                    gamemode = 1;
-                                    break;
-                                case 'ctb':
-                                    gamemode = 2;
-                                    break;
-                                case 'mania':
-                                    gamemode = 3;
-                                    break;
-                                default:
-                                    gamemode = 0;
-                                    break;
-                            }
-                        } else {
-                            gamemode = config.default_gamemode;
-                            player = text;
-                        }
-                        sinusbot.http({
-                            method: 'GET',
-                            url: api_url.format(config.api_key, player, gamemode)
-                        }, function(err, res) {
-                            if (err) {
-                                send_msg(ev.clientId, ev.mode, "API Request error");
-                            } else {
-                                if (res.statusCode == 200) {
-                                    var p = JSON.parse(res.data);
-                                    if (p.length > 0) {
-                                        p = p[0];
-                                        var default_str = "Player: {player_name} - Play Count: {play_count} - Ranked Score: {ranked_score} - Total Score: {total_score} - PP: {pp_raw} - Accuracy: {accuracy}% - Level: {level} - Country: {country}",
-                                            str_msg;
-                                        str_msg = (typeof config.text_format == 'undefined' || config.text_format.length == 0 ? default_str : config.text_format);
-                                        send_msg(ev.clientId, ev.mode, str_msg.format({
-                                            player_name: p.username,
-                                            play_count: addCommas(p.playcount),
-                                            ranked_score: addCommas(Math.floor(p.ranked_score)),
-                                            total_score: addCommas(Math.floor(p.total_score)),
-                                            pp_raw: addCommas(Math.floor(p.pp_raw)),
-                                            accuracy: Math.floor(p.accuracy),
-                                            level: Math.floor(p.level),
-                                            country: p.country
-                                        }));
-                                    } else {
-                                        send_msg(ev.clientId, ev.mode, "{0} Unknown player".format(player));
-                                    }
-                                }
-                            }
+                        youtube.msg({
+                            text: options.text,
+                            backend: options.backend,
+                            mode: 0
                         });
                     }
+                    break;
+                case 2: // Channel message
+                    if (options.channel) {
+                        options.channel.chat(options.text);
+                    } else {
+                        youtube.msg({
+                            text: options.text,
+                            backend: options.backend,
+                            mode: 0
+                        });
+                    }
+                    break;
+                default: // Server message
+                    options.backend.chat(options.text);
+                    break;
+                               }
+
+        },
+        fetch: function(options) {
+            options = (typeof options !== "object") ? {} : options;
+
+            options.api_key = options.api_key || osu.config.api.key;
+            options.player = options.player || 'peppy';
+            options.gamemode = options.gamemode || 0;
+            options.callback = options.callback || function(json) { engine.log(json); };
+            options.error_callback = options.error_callback || function(error) { engine.log(error); };
+
+            /*
+             TODO
+             - [ENH] Port to new script engine
+            */
+            sinusbot.http({
+                method: 'GET',
+                url: osu.config.api.url.format(options.api_key, options.player, options.gamemode),
+                headers: {
+                    'Content-Type': 'application/json; charset=UTF-8'
                 }
+            }, function(err, res) {
+                if (err || res.statusCode != 200) {
+                    options.error_callback(err);
+                } else {
+                    var json = JSON.parse(res.data);
+                    options.callback(json);
+                }
+            });
+        },
+        callbacks: {
+            fetch: {
+                done: function(client, channel, mode, data) {
+                    if (data.length > 0) {
+                        data = data[0];
+
+                        // Prepare format
+                        var str_vars = {
+                            player_name: data.username,
+                            play_count: osu.util.addCommas(data.playcount),
+                            ranked_score: osu.util.addCommas(Math.floor(data.ranked_score)),
+                            total_score: osu.util.addCommas(Math.floor(data.total_score)),
+                            pp_raw: osu.util.addCommas(Math.floor(data.pp_raw)),
+                            accuracy: Math.floor(data.accuracy),
+                            level: Math.floor(data.level),
+                            country: data.country
+                        };
+
+                        osu.msg({
+                            text: osu.config.plugin.message.format(str_vars),
+                            channel: channel,
+                            client: client,
+                            mode: mode
+                        });
+
+                    } else {
+                        osu.msg({
+                            text: "Unknown player",
+                            channel: channel,
+                            client: client,
+                            mode: mode
+                        });
+                    }
+                },
+                error: function(client, channel, mode, data) {
+                    osu.msg({
+                        text: "Search failed (Bad request)",
+                        channel: channel,
+                        client: client,
+                        mode: mode
+                    });
+                }
+            }
+        },
+        util: {
+            addCommas: function(nStr) {
+                nStr += '';
+                x = nStr.split('.');
+                x1 = x[0];
+                x2 = x.length > 1 ? '.' + x[1] : '';
+                var rgx = /(\d+)(\d{3})/;
+                while (rgx.test(x1)) {
+                    x1 = x1.replace(rgx, '$1' + ',' + '$2');
+                }
+                return x1 + x2;
+            }  
+        }
+    };
+
+    event.on('chat', function(ev) {
+        var client = ev.client;
+        var channel = ev.channel;
+
+        if (client.isSelf()) return;
+
+        var cmd, text;
+
+        // Regex text: !{command} {text}
+        if ((text = osu.config.plugin.regex.cmd.exec(ev.text)) !== null) {
+            cmd = text[1].toLowerCase(); // command trigger
+            text = text[2]; // args
+            if (cmd === osu.config.plugin.trigger.toLowerCase() && text.length > 0) {
+                // trigger command {text}
+                var gm_regx, gamemode, player;
+                if ((gm_regx = osu.config.plugin.regex.gamemode.exec(text)) !== null) {
+                    gamemode = gm_regx[1];
+                    player = gm_regx[2];
+                    switch (gamemode.toLowerCase()) {
+                        case 'taiko':
+                            gamemode = 1;
+                            break;
+                        case 'ctb':
+                            gamemode = 2;
+                            break;
+                        case 'mania':
+                            gamemode = 3;
+                            break;
+                        default:
+                            gamemode = 0;
+                            break;
+                                                  }
+                } else {
+                    gamemode = config.default_gamemode;
+                    player = text;
+                }
+
+                osu.fetch({
+                    player: player,
+                    gamemode: gamemode,
+                    callback: function(data) {
+                        osu.callbacks.fetch.done(client, channel, ev.mode, data);
+                    },
+                    error_callback: function(data) {
+                        osu.callbacks.fetch.error(client, channel, ev.mode, data);
+                    }
+                });
             }
         }
     });
