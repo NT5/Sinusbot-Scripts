@@ -1,8 +1,8 @@
 registerPlugin({
     name: 'Youtube Search',
-    version: '1.2.3',
+    version: '1.3.0',
     engine: '>= 0.9.17',
-    description: 'Youtube video search Queue & Player',
+    description: 'Youtube video search',
     author: 'NT5',
     vars: [
         {
@@ -431,7 +431,7 @@ registerPlugin({
         },
         commands: {
             'youtube': {
-                syntax: 'Syntax: !{cmd}-[{valids}] <text>',
+                syntax: 'Syntax: !{cmd}-[{valids}] [<text>]',
                 active: true,
                 hidden: true,
                 admin: false,
@@ -514,6 +514,22 @@ registerPlugin({
                         }));
                     };
 
+                    var format = require('format');
+                    var message_format = [
+                        [format.bold('You'), format.color('Tube', '#ff0000'), ' '].join(''),
+                        [
+                            [format.bold('Title:'), '{title}'].join(' '),
+                            [format.bold('Link:'), '[url={yt_link}]{yt_link}[/url]'].join(' '),
+                            [format.bold('Duration:'), '{duration}'].join(' '),
+                            [format.bold('Views:'), '{viewCount}'].join(' '),
+                            [format.bold('Likes:'), '{likeCount}'].join(' '),
+                            [format.bold('Dislikes:'), '{dislikeCount}'].join(' '),
+                            [format.bold('Comments:'), '{commentCount}'].join(' '),
+                            [format.bold('By:'), '{upload_by}'].join(' '),
+                            [format.bold('Description:'), '{description_complete}'].join(' ')
+                        ].join(' - ')
+                    ];
+
                     var videoid = youtube.config.plugin.regex.youtube.exec(data.text) || data.text;
 
                     youtube.api.video({
@@ -521,7 +537,65 @@ registerPlugin({
                         callback: function(video) {
                             youtube.callbacks.video_message({
                                 msg: data,
+                                message_format: message_format.join(''),
                                 video: video
+                            });
+                        },
+                        error_callback: function(err) {
+                            msg("Search failed (Bad request)");
+                        }
+                    });
+                }
+            },
+            'search': {
+                syntax: 'Syntax !{cmd}-{par} <text>',
+                active: true,
+                hidden: false,
+                admin: false,
+                callback: function(data) {
+                    var msg = function(text) {
+                        youtube.msg(Object.assign(data, {
+                            text: text
+                        }));
+                    };
+
+                    var format = require('format');
+                    var message_format = [
+                        [format.bold('You'), format.color('Tube', '#ff0000'), ' '].join(''),
+                        [
+                            [format.bold('Title:'), '{title}'].join(' '),
+                            [format.bold('Link:'), '[url={yt_link}]{yt_link}[/url]'].join(' '),
+                            [format.bold('Description:'), '{description}'].join(' '),
+                            [format.bold('by:'), '{upload_by}'].join(' ')
+                        ].join(' - ')
+                    ];
+
+                    youtube.api.search({
+                        query: data.text,
+                        maxresults: 5,
+                        callback: function(search) {
+                            search = (typeof search !== "object") ? {} : search;
+                            search.items = search.items || [];
+                            var items = search.items;
+
+                            items.forEach(function(item) {
+                                engine.log(item);
+                                item = (typeof item !== "object") ? {} : item;
+                                item.id = item.id || {};
+                                item.id.videoId = item.id.videoId || 0;
+                                item.id.kind = item.id.kind || 'default';
+
+                                youtube.callbacks.video_message({
+                                    msg: data,
+                                    message_format: message_format.join(''),
+                                    video: {
+                                        items: [{
+                                            id: item.id.videoId,
+                                            kind: item.id.kind,
+                                            snippet: item.snippet
+                                        }]
+                                    }
+                                });
                             });
                         },
                         error_callback: function(err) {
@@ -536,10 +610,13 @@ registerPlugin({
                 hidden: false,
                 admin: false,
                 callback: function(data) {
+                    var bot = backend.getBotClient();
+
                     youtube.msg(Object.assign(data, {
-                        text: 'Youtube Search script v{version} by {author}'.format({
-                            version: '1.2.3',
-                            author: 'NT5'
+                        text: 'Youtube Search script v{version} by {author} running on {bot_name}'.format({
+                            version: '1.3.0',
+                            author: 'NT5',
+                            bot_name: bot.name()
                         })
                     }));
                 }
@@ -604,7 +681,7 @@ registerPlugin({
                         text: '{0}'.format(backend.getBotClient().uniqueID())
                     }));
 
-                    engine.log(config);
+                    engine.log(sinusbot);
                 }
             },
             getCommands: function() {
@@ -624,6 +701,8 @@ registerPlugin({
 
                 data.video = data.video || {};
                 data.msg = data.msg || {};
+
+                data.message_format = data.message_format || youtube.config.plugin.command_message;
 
                 var msg = function(text) {
                     youtube.msg(Object.assign(data.msg, {
@@ -676,7 +755,7 @@ registerPlugin({
                         };
 
                         // Send message
-                        msg(youtube.config.plugin.command_message.format(str_var));
+                        msg(data.message_format.format(str_var));
                     } else {
                         msg("Search failed (Invalid type)");
                         engine.log(data.video);
