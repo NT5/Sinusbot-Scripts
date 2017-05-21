@@ -66,33 +66,33 @@ registerPlugin({
             placeholder: '[B]You[/B][COLOR=#ff0000]Tube[/COLOR] - Title: {title} - Link: [url={yt_link}]{yt_link}[/url] - By: {upload_by}'
         },
         {
-            name: 'command_blacklist',
-            title: 'Title blacklist <comma saparated> (not playback if the title of video is here)',
+            name: 'yt_titleblacklist',
+            title: 'Banned video titles <comma saparated>',
             type: 'string',
             placeholder: '10 hours, ...'
         },
         {
-            name: 'command_permissions',
-            title: 'List of users that the bot should accept admin commands (ID or Name)',
+            name: 'command_adminpermissions',
+            title: 'Admin users (ID or Name)',
             type: 'array',
             vars: [
                 {
                     name: 'user',
                     type: 'string',
                     indent: 2,
-                    placeholder: 'User name or id'
+                    placeholder: 'Username or id'
                 }
             ]
         },
         {
             name: 'command_blacklistusers',
-            title: 'Banned users <comma saparated>',
+            title: 'Banned users <comma saparated> ',
             type: 'string',
-            placeholder: 'troleface, ...'
+            placeholder: 'trollface, <id/username>...'
         },
         {
             name: 'command_permissionsServerGroups',
-            title: 'List of server groups that the bot should accept command (ID or Name)',
+            title: 'List of server groups that the bot should accept command and links (ID or Name)',
             type: 'array',
             vars: [
                 {
@@ -271,10 +271,13 @@ registerPlugin({
                 catch_url: config.yt_catchurl,
                 randomplay: config.yt_randomplay,
                 yt_maxduration: config.yt_maxduration || 900,
+                yt_titleblacklist: (typeof config.yt_titleblacklist !== 'undefined' && config.yt_titleblacklist.length > 0 ? config.yt_titleblacklist.split(',') : []),
                 command_message: config.command_message || '[B]You[/B][COLOR=#ff0000]Tube[/COLOR] - Title: {title} - Link: [url={yt_link}]{yt_link}[/url] - By: {upload_by}',
                 ytdl_action: parseInt(config.ytdl_action) || 0,
                 ytdl_playback: parseInt(config.ytdl_playback) || 0,
-                server_groups: config.command_permissionsServerGroups || []
+                server_groups: config.command_permissionsServerGroups || [],
+                adminpermissions: config.command_adminpermissions || [],
+                blacklistusers: (typeof config.command_blacklistusers !== 'undefined' && config.command_blacklistusers.length > 0 ? config.command_blacklistusers.split(',') : [])
             }
         },
         getJSON: function(options) {
@@ -359,37 +362,6 @@ registerPlugin({
                         })
                     }),
                     callback: options.callback,
-                    error_callback: options.error_callbacks
-                });
-            },
-            searchWithDetails: function(options) {
-                options = (typeof options !== "object") ? {} : options;
-
-                options.query = options.query || '';
-                options.maxresults = options.maxresults || youtube.config.api.maxresults;
-                options.api_key = options.api_key || youtube.config.api.key;
-                options.callback = options.callback || function(json) { engine.log(json); };
-                options.search_callback = options.search_callback || false;
-                options.error_callback = options.error_callback || function(error) { engine.log(error); };
-
-                youtube.api.search({
-                    query: options.query,
-                    fields: 'items(id)',
-                    maxresults: options.maxresults,
-                    api_key: options.api_key,
-                    callback: function(res) {
-                        res.items.forEach(function(item) {
-                            youtube.api.video({
-                                videoId: item.id.videoId,
-                                api_key: options.api_key,
-                                callback: options.callback,
-                                error_callback: options.error_callback
-                            });
-                        });
-                        if (options.search_callback) {
-                            options.search_callback(res);
-                        }
-                    },
                     error_callback: options.error_callback
                 });
             }
@@ -404,6 +376,7 @@ registerPlugin({
             options.channel = options.channel || false;
 
             var maxlength = 1000;
+            var timeoutdelay = 125;
 
             /*
              TODO
@@ -415,7 +388,9 @@ registerPlugin({
                         if (options.text.length >= maxlength) {
                             options.client.chat(options.text.trunc(maxlength));
                             options.text = options.text.slice(maxlength, options.text.length);
-                            youtube.msg(options);
+                            setTimeout(function() {
+                                youtube.msg(options)
+                            }, timeoutdelay);
                         } else {
                             options.client.chat(options.text);
                         }
@@ -429,7 +404,9 @@ registerPlugin({
                         if (options.text.length > maxlength) {
                             options.channel.chat(options.text.trunc(maxlength));
                             options.text = options.text.slice(maxlength, options.text.length);
-                            youtube.msg(options);
+                            setTimeout(function() {
+                                youtube.msg(options)
+                            }, timeoutdelay);
                         } else {
                             options.channel.chat(options.text);
                         }
@@ -442,7 +419,9 @@ registerPlugin({
                     if (options.text.length > maxlength) {
                         options.backend.chat(options.text.trunc(maxlength));
                         options.text = options.text.slice(maxlength, options.text.length);
-                        youtube.msg(options);
+                        setTimeout(function() {
+                            youtube.msg(options)
+                        }, timeoutdelay);
                     } else {
                         options.backend.chat(options.text);
                     }
@@ -452,71 +431,180 @@ registerPlugin({
         },
         commands: {
             'youtube': {
-                syntax: 'Syntax: !{cmd}-[{valids}] <search string>',
+                syntax: 'Syntax: !{cmd}-[{valids}] <text>',
                 active: true,
                 hidden: true,
+                admin: false,
                 callback: function(data) {
                     data = (typeof data !== "object") ? {} : data;
 
-                    youtube.api.searchWithDetails({
+                    var msg = function(text) {
+                        youtube.msg(Object.assign(data, {
+                            text: text
+                        }));
+                    };
+
+                    var error_callback = function(error) {
+                        msg("Search failed (Bad request)");
+                        engine.log(error);
+                    };
+
+                    youtube.api.search({
                         query: data.text,
-                        callback: function(response) {
-                            youtube.callbacks.video_message({
-                                msg: data,
-                                json: response
-                            });
-                        },
-                        search_callback: function(res) {
-                            if (data.mode === 2) { // only play if channel trigger
-                                youtube.callbacks.video_playback(res);
+                        fields: 'items(id)',
+                        callback: function(search) {
+                            search = (typeof search !== "object") ? {} : search;
+                            search.items = search.items || [];
+
+                            if (search.items.length <= 0) {
+                                msg("Search failed (Nothing found)");
+                            } else {
+                                var playback = false;
+                                var items = search.items;
+
+                                items.forEach(function(item) {
+                                    item = (typeof item !== "object") ? {} : item;
+                                    item.id = item.id || {};
+                                    item.id.videoId = item.id.videoId || 0;
+                                    item.id.kind = item.id.kind || 'default';
+
+                                    youtube.api.video({
+                                        videoId: item.id.videoId,
+                                        callback: function(video) {
+                                            var probability = youtube.config.plugin.randomplay ? (Math.random() >= ( 1.0 - (1/items.length) ) ) : true;
+
+                                            youtube.callbacks.video_message({
+                                                msg: data,
+                                                video: video
+                                            });
+
+                                            if (!playback && items[items.length - 1].id.videoId === video.items[ 0 ].id) {
+                                                if (youtube.callbacks.video_playback({ video: video })) {
+                                                    playback = true;
+                                                } else {
+                                                    youtube.msg(Object.assign(data, {
+                                                        text: 'Could not play video with filters set',
+                                                        mode: 1
+                                                    }));
+                                                }
+                                            } else if (!playback && probability) {
+                                                if (youtube.callbacks.video_playback({ video: video })) {
+                                                    playback = true;
+                                                }
+                                            }
+                                        },
+                                        error_callback: error_callback
+                                    });
+                                });
                             }
                         },
-                        error_callback: function(response) {
-                            youtube.msg(Object.assign(data, {
-                                text: "Search failed (Bad request)"
-                            }));
+                        error_callback: error_callback
+                    });
+                }
+            },
+            'video': {
+                syntax: 'Syntax !{cmd}-{par} <video-id/link>',
+                active: true,
+                hidden: false,
+                admin: false,
+                callback: function(data) {
+                    var msg = function(text) {
+                        youtube.msg(Object.assign(data, {
+                            text: text
+                        }));
+                    };
+
+                    var videoid = youtube.config.plugin.regex.youtube.exec(data.text) || data.text;
+
+                    youtube.api.video({
+                        videoId: (typeof videoid === 'object' ? videoid[ 1 ] : videoid ),
+                        callback: function(video) {
+                            youtube.callbacks.video_message({
+                                msg: data,
+                                video: video
+                            });
+                        },
+                        error_callback: function(err) {
+                            msg("Search failed (Bad request)");
                         }
                     });
                 }
             },
-            'test': {
-                syntax: 'Syntax: !{cmd}-{par} <text>',
+            'about': {
+                syntax: false,
                 active: true,
                 hidden: false,
+                admin: false,
                 callback: function(data) {
-                    data = (typeof data !== "object") ? {} : data;
-
-                    youtube.msg(data);
-                    youtube.api.searchWithDetails({
-                        query: data.text,
-                        maxresults: 10,
-                        callback: function(res) {
-                            youtube.msg(Object.assign(data, {
-                                text: '{video}'.format({
-                                    video: res.items[0].snippet.title
-                                })
-                            }));
-                        }
-                    });
+                    youtube.msg(Object.assign(data, {
+                        text: 'Youtube Search script v{version} by {author}'.format({
+                            version: '1.2.3',
+                            author: 'NT5'
+                        })
+                    }));
                 }
             },
             'setkey': {
                 syntax: 'Syntax !{cmd}-{par} <key>',
                 active: true,
                 hidden: false,
+                admin: true,
                 callback: function(data) {
                     data = (typeof data !== "object") ? {} : data;
                     data.mode = 1;
 
-                    // youtube.config.api.key = data.text;
-                    // config.yt_apikey = youtube.config.api.key;
+                    var old_key = youtube.config.api.key;
 
-                    // engine.saveConfig(config);
+                    youtube.config.api.key = data.text;
+                    config.yt_apikey = youtube.config.api.key;
+                    engine.saveConfig(config);
+
                     youtube.msg(Object.assign(data, {
-                        text: 'Api Key renewed to {key}'.format({
-                            key:  youtube.config.api.key
+                        text: 'Api Key renewed from {old_key} to {key}'.format({
+                            key:  youtube.config.api.key,
+                            old_key: old_key
                         })
                     }));
+                }
+            },
+            'reset': {
+                syntax: 'Syntax !{cmd}-{par} {botname}',
+                active: true,
+                hidden: false,
+                admin: true,
+                callback: function(data) {
+                    var msg = function(text) {
+                        youtube.msg(Object.assign(data, {
+                            text: text
+                        }));  
+                    };
+                    var bot = backend.getBotClient();
+
+                    if (data.text === bot.name()) {
+                        config = {};
+                        engine.saveConfig(config);
+                        if (!engine.reloadScripts()) {
+                            msg('Can\'t reload script because its disabled in config.ini');
+                        }
+                        msg('All configuration reset to default. If not take effect make sure do you have activate "AllowReload" on your config.ini or reload it manually');
+                    } else {
+                        msg('You should type the bot name to reset settings');
+                    }
+                }
+            },
+            'test': {
+                syntax: false,
+                active: true,
+                hidden: true,
+                admin: true,
+                callback: function(data) {
+                    data = (typeof data !== "object") ? {} : data;
+
+                    youtube.msg(Object.assign(data, {
+                        text: '{0}'.format(backend.getBotClient().uniqueID())
+                    }));
+
+                    engine.log(config);
                 }
             },
             getCommands: function() {
@@ -534,15 +622,44 @@ registerPlugin({
             video_message: function(data) {
                 data = (typeof data !== "object") ? {} : data;
 
-                data.json = data.json || {};
+                data.video = data.video || {};
                 data.msg = data.msg || {};
 
-                // Check for valid json response
-                if ('items' in data.json && data.json.items.length > 0) {
-                    var item = data.json.items[0];
+                var msg = function(text) {
+                    youtube.msg(Object.assign(data.msg, {
+                        text: text
+                    }));  
+                };
+
+                data.video.items = data.video.items || [];
+
+                data.video.items.forEach(function(item) {
+                    item = (typeof item !== "object") ? {} : item;
+                    item.kind = item.kind || 'default';
+                    item.id = item.id || 0;
+
+                    item.snippet = item.snippet || {};
+                    item.snippet.title = item.snippet.title || 'no video';
+                    item.snippet.description = item.snippet.description || 'no video';
+                    item.snippet.channelTitle = item.snippet.channelTitle || 'no video';
+
+                    item.contentDetails = item.contentDetails || {};
+                    item.contentDetails.duration = item.contentDetails.duration || '0S';
+
+                    item.statistics = item.statistics || {};
+                    item.statistics.commentCount = item.statistics.commentCount || 0;
+                    item.statistics.viewCount = item.statistics.viewCount || 0;
+                    item.statistics.likeCount = item.statistics.likeCount || 0;
+                    item.statistics.dislikeCount = item.statistics.dislikeCount || 0;
+                    item.statistics.favoriteCount = item.statistics.favoriteCount || 0;
+
+                });
+
+                if (data.video.items.length > 0) {
+                    var item = data.video.items[ 0 ];
                     var str_vars = [];
 
-                    if ('snippet' in item && item.kind === 'youtube#video') {
+                    if (item.kind === 'youtube#video') {
                         var str_var = {
                             title: item.snippet.title,
                             description_complete: item.snippet.description,
@@ -559,31 +676,57 @@ registerPlugin({
                         };
 
                         // Send message
-                        youtube.msg(Object.assign(data.msg, {
-                            text: youtube.config.plugin.command_message.format(str_var)
-                        }));
+                        msg(youtube.config.plugin.command_message.format(str_var));
                     } else {
-                        youtube.msg(Object.assign(data.msg, {
-                            text: "Search failed (Invalid format response)"
-                        }));
-                        engine.log(data.json);
+                        msg("Search failed (Invalid type)");
+                        engine.log(data.video);
                     }
                 } else {
-                    youtube.msg(Object.assign(data.msg, {
-                        text: "Search failed (Nothing found)"
-                    }));
+                    msg("Search failed (Nothing found)");
                 }
             },
             video_playback: function(data) {
                 data = (typeof data !== "object") ? {} : data;
 
+                data.video = data.video || {};
+                data.video.items = data.video.items || [];
+
+                data.video.items.forEach(function(item) {
+                    item = (typeof item !== "object") ? {} : item;
+                    item.kind = item.kind || 'default';
+                    item.id = item.id || 0;
+                    item.snippet = item.snippet || {};
+                    item.snippet.title = item.snippet.title || 'no video';
+                    item.contentDetails = item.contentDetails || {};
+                    item.contentDetails.duration = item.contentDetails.duration || '0S';
+                });
+
                 // check for valid json
-                if ('items' in data && data.items.length > 0) {
+                if (data.video.items.length > 0) {
                     var media = require('media');
 
-                    var video = (youtube.config.plugin.randomplay ? data.items[Math.floor(Math.random() * data.items.length)] : data.items[0]);
+                    var video = data.video.items[ 0 ];
 
-                    var videoId = video.id.videoId || video.id;
+                    var playable = {
+                        title: function() {
+                            var video_title = video.snippet.title.toLowerCase();
+                            var blacklist = false;
+                            youtube.config.plugin.yt_titleblacklist.forEach(function(word) {
+                                if (!blacklist && video_title.indexOf(word.toLowerCase()) !== -1) {
+                                    blacklist = true;
+                                }
+                            });
+                            return (blacklist ? false : true);
+                        },
+                        duration: function() {
+                            var video_duration = convert_time(video.contentDetails.duration);
+                            if (video_duration <= youtube.config.plugin.yt_maxduration) return true;
+                            return false;
+                        }
+                    };
+                    if (!playable.title() || !playable.duration()) return false;
+
+                    var videoId = video.id;
                     var queue = (youtube.config.plugin.ytdl_playback === 0 ? true : false);
 
                     /*
@@ -594,28 +737,44 @@ registerPlugin({
                     */
                     switch (youtube.config.plugin.ytdl_action) {
                         case 1: // Download
-                            engine.log("Donwload: " + videoId);
-                            media.ytdl(videoId, (queue ? false : true));
-                            if (queue) {
-                                engine.log("Append to queue: " + videoId);
-                                // media.enqueueYt(videoId);
-                                sinusbot.qyt(videoId);
+                            if(media.ytdl(videoId, (queue ? false : true))) {
+                                engine.log("Donwload: " + videoId);
+                            } else {
+                                engine.log("Can't download: " + videoId);
                             }
+                            if (queue) {
+                                // media.enqueueYt(videoId);
+                                if (sinusbot.qyt(videoId)) {
+                                    engine.log("Append to queue: " + videoId);
+                                } else {
+                                    engine.log("Cannot enqueue: " + videoId);
+                                }
+                            }
+                            return true;
                             break;
                         case 2: // Stream
                             if (queue) {
-                                engine.log("Append to queue: " + videoId);
                                 // media.enqueueYt(videoId);
-                                sinusbot.qyt(videoId);
+                                if (sinusbot.qyt(videoId)) {
+                                    engine.log("Append to queue: " + videoId);
+                                } else {
+                                    engine.log("Cannot enqueue: " + videoId);
+                                }
                             } else {
-                                engine.log("Streaming: " + videoId);
-                                media.yt(videoId);
+                                if (media.yt(videoId)) {
+                                    engine.log("Streaming: " + videoId);
+                                } else {
+                                    engine.log("Can't Streaming: " + videoId); 
+                                }
                             }
+                            return true;
                             break;
                         default: // Nothing
+                            return true;
                             break;
                                                              }
                 }
+                return false;
             }
         }
     };
@@ -624,6 +783,7 @@ registerPlugin({
     event.on('chat', function(ev) {
         var client = ev.client;
         var channel = ev.channel;
+        var bot = backend.getBotClient();
 
         if (client.isSelf()) return;
 
@@ -633,25 +793,49 @@ registerPlugin({
          - [ENH] Better way to split groups
          - [BUG] Make sure if works in all cases
         */
-        var group_permission = {
-            config: youtube.config.plugin.server_groups.map(function(arr) {
-                return arr.group;
-            }),
-            has_permission: function() {
-                if (group_permission.config.length > 0) {
-                    var has_permission = false;
-                    client.getServerGroups().forEach(function(group) {
-                        if ((!has_permission) && ((group_permission.config.indexOf(group.name()) > -1) || (group_permission.config.indexOf(group.id()) > -1))) {
-                            has_permission = true;
-                        }
-                    });
-                    return has_permission;
-                } else {
+        var permission = {
+            config: {
+                group: youtube.config.plugin.server_groups.map(function(arr) {
+                    return arr.group;
+                }),
+                client: youtube.config.plugin.adminpermissions.map(function(arr) {
+                    return arr.user;
+                }),
+                banned: youtube.config.plugin.blacklistusers
+            },
+            group: {
+                has_permission: function() {
+                    if (permission.config.group.length > 0) {
+                        var has_permission = false;
+                        client.getServerGroups().forEach(function(group) {
+                            if ((!has_permission) && ((permission.config.group.indexOf(group.name()) > -1) || (permission.config.group.indexOf(group.id()) > -1))) {
+                                has_permission = true;
+                            }
+                        });
+                        return has_permission;
+                    }
                     return true;
+                } 
+            },
+            client: {
+                is_banned: function() {
+                    if (permission.config.banned.length > 0) {
+                        if ((permission.config.banned.indexOf(client.name()) > -1) || (permission.config.banned.indexOf(client.uniqueID()) > -1))
+                            return true;
+                    }
+                    return false;
+                },
+                is_admin: function() {
+                    if (permission.config.client.length > 0) {
+                        if ((permission.config.client.indexOf(client.name()) > -1) || (permission.config.client.indexOf(client.uniqueID()) > -1))
+                            return true;
+                    }
+                    return false;
                 }
             }
         };
-        if (!group_permission.has_permission()) return;
+        if (!permission.group.has_permission()) return;
+        if (permission.client.is_banned()) return;
 
         var main_cmd = youtube.commands['youtube'];
         var msg = {
@@ -680,6 +864,13 @@ registerPlugin({
                             // Command is turned off
                             if (!command.active) return;
 
+                            if (command.admin && !permission.client.is_admin()) {
+                                youtube.msg(Object.assign(msg, {
+                                    text: 'You not have enough permissions'
+                                }));
+                                return;
+                            }
+
                             // If the command have a syntax to work
                             if (command.syntax) {
                                 // check if chat have text
@@ -692,7 +883,8 @@ registerPlugin({
                                     youtube.msg(Object.assign({
                                         text: command.syntax.format({
                                             cmd: cmd,
-                                            par: par
+                                            par: par,
+                                            botname: bot.name()
                                         })
                                     }, msg));
                                 }
@@ -743,12 +935,14 @@ registerPlugin({
                     videoId: videoId,
                     callback: function(data) {
                         youtube.callbacks.video_message({
-                            json: data,
+                            video: data,
                             msg: msg
                         });
 
                         if (msg.mode === 2) {
-                            youtube.callbacks.video_playback(data);
+                            youtube.callbacks.video_playback({
+                                video: data
+                            });
                         }
                     },
                     error_callback: function(data) {
