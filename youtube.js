@@ -117,7 +117,7 @@ registerPlugin({
         }
         */
     ]
-}, function(sinusbot, config) {
+}, function (sinusbot, config) {
 
     var backend = require('backend');
     var engine = require('engine');
@@ -125,14 +125,14 @@ registerPlugin({
 
     // String format util
     if (!String.prototype.format) {
-        String.prototype.format = function() {
+        String.prototype.format = function () {
             var str = this.toString();
             if (!arguments.length) {
                 return str;
             }
-            var args = typeof arguments[0],
-                args = (("string" == args || "number" == args) ? arguments : arguments[0]);
-            for (arg in args) {
+            var args = typeof arguments[0];
+            args = (("string" == args || "number" == args) ? arguments : arguments[0]);
+            for (var arg in args) {
                 str = str.replace(RegExp("\\{" + arg + "\\}", "gi"), args[arg]);
             }
             return str;
@@ -140,17 +140,17 @@ registerPlugin({
     }
 
     // String truncate util http://stackoverflow.com/questions/1199352
-    String.prototype.trunc = function( n, useWordBoundary ){
+    String.prototype.trunc = function (n, useWordBoundary) {
         if (this.length <= n) { return this; }
-        var subString = this.substr(0, n-1);
-        return (useWordBoundary 
-                ? subString.substr(0, subString.lastIndexOf(' ')) 
-                : subString) + "...";
+        var subString = this.substr(0, n - 1);
+        return (useWordBoundary
+            ? subString.substr(0, subString.lastIndexOf(' '))
+            : subString) + "...";
     };
 
     // Polyfill util https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/assign#Polyfill
     if (typeof Object.assign != 'function') {
-        Object.assign = function(target, varArgs) { // .length of function is 2
+        Object.assign = function (target, varArgs) { // .length of function is 2
             'use strict';
             if (target == null) { // TypeError if undefined or null
                 throw new TypeError('Cannot convert undefined or null to object');
@@ -210,8 +210,8 @@ registerPlugin({
 
     // H:M:S
     function toHHMMSS(secs) {
-        var sec_num = parseInt(secs, 10);   
-        var hours   = Math.floor(sec_num / 3600) % 24;
+        var sec_num = parseInt(secs, 10);
+        var hours = Math.floor(sec_num / 3600) % 24;
         var minutes = Math.floor(sec_num / 60) % 60;
         var seconds = sec_num % 60;
         // return [hours,minutes,seconds];
@@ -225,25 +225,25 @@ registerPlugin({
     // {000,000,...}
     function addCommas(nStr) {
         nStr += '';
-        x = nStr.split('.');
-        x1 = x[0];
-        x2 = x.length > 1 ? '.' + x[1] : '';
-        var rgx = /(\d+)(\d{3})/;
+        var x = nStr.split('.'),
+            x1 = x[0],
+            x2 = x.length > 1 ? '.' + x[1] : '',
+            rgx = /(\d+)(\d{3})/;
         while (rgx.test(x1)) {
             x1 = x1.replace(rgx, '$1' + ',' + '$2');
         }
         return x1 + x2;
-    } 
+    }
 
     // URL format util http://stackoverflow.com/questions/1714786/
     function URLSerialize(obj, prefix) {
         var str = [], p;
-        for(p in obj) {
+        for (p in obj) {
             if (obj.hasOwnProperty(p)) {
                 var k = prefix ? prefix + "[" + p + "]" : p, v = obj[p];
                 str.push((v !== null && typeof v === "object") ?
-                         URLSerialize(v, k) :
-                         encodeURIComponent(k) + "=" + encodeURIComponent(v));
+                    URLSerialize(v, k) :
+                    encodeURIComponent(k) + "=" + encodeURIComponent(v));
             }
         }
         return str.join("&");
@@ -255,7 +255,7 @@ registerPlugin({
             api: {
                 url: "https://www.googleapis.com/youtube/v3/{path}?{fields}",
                 key: config.yt_apikey || 0,
-                maxresults: function() {
+                maxresults: function () {
                     var mr = parseInt(config.yt_maxresults);
                     return (mr >= 1 && mr <= 50 ? mr : 1);
                 }()
@@ -263,9 +263,9 @@ registerPlugin({
             plugin: {
                 regex: {
                     // !{command}[-{area}] [{text}]
-                    cmd: /^\!(\w+)(?:\-(\w+))?(?:\s(.+))?/,
+                    cmd: /^!(\w+)(?:-(\w+))?(?:\s(.+))?/,
                     // {videId}
-                    youtube: /(?:http|https)\:\/\/www\.(?:youtube\.com|youtu\.be)\/watch\?v\=([\w\-]+)/
+                    youtube: /(?:http|https):\/\/www\.(?:youtube\.com|youtu\.be)\/watch\?v=([\w-]+)/
                 },
                 command_trigger: config.command_trigger || 'youtube',
                 catch_url: config.yt_catchurl,
@@ -280,14 +280,14 @@ registerPlugin({
                 blacklistusers: (typeof config.command_blacklistusers !== 'undefined' && config.command_blacklistusers.length > 0 ? config.command_blacklistusers.split(',') : [])
             }
         },
-        getJSON: function(options) {
+        getJSON: function (options) {
             options = (typeof options !== "object") ? {} : options;
 
             options.method = options.method || 'GET';
             options.url = options.url || '';
             options.headers = options.headers || { 'Content-Type': 'application/json; charset=UTF-8' };
-            options.callback = options.callback || function(err, res) { engine.log(res); };
-            options.error_callback = options.error_callback || function(err, res) { engine.log(err); };
+            options.callback = options.callback || function (err, res) { engine.log(res); };
+            options.error_callback = options.error_callback || function (err, res) { engine.log(err); };
 
             /*
              TODO
@@ -297,7 +297,7 @@ registerPlugin({
                 method: options.method,
                 url: options.url,
                 headers: options.headers
-            }, function(err, res) {
+            }, function (err, res) {
                 if (err || res.statusCode != 200) {
                     engine.log('Request error [{error}] Code: [{code}] Data: [{data}]'.format({
                         error: err,
@@ -313,7 +313,7 @@ registerPlugin({
             });
         },
         api: {
-            search: function(options) {
+            search: function (options) {
                 options = (typeof options !== "object") ? {} : options;
 
                 options.query = options.query || '';
@@ -322,8 +322,8 @@ registerPlugin({
                 options.fields = options.fields || 'items(snippet/title,snippet/description,snippet/channelTitle,id)';
                 options.part = options.part || 'snippet';
                 options.api_key = options.api_key || youtube.config.api.key;
-                options.callback = options.callback || function(json) { engine.log(json); };
-                options.error_callback = options.error_callback || function(error) { engine.log(error); };
+                options.callback = options.callback || function (json) { engine.log(json); };
+                options.error_callback = options.error_callback || function (error) { engine.log(error); };
 
                 youtube.getJSON({
                     url: youtube.config.api.url.format({
@@ -341,15 +341,15 @@ registerPlugin({
                     error_callback: options.error_callback
                 });
             },
-            video: function(options) {
+            video: function (options) {
                 options = (typeof options !== "object") ? {} : options;
 
                 options.videoId = options.videoId || 0;
                 options.fields = options.fields || 'items(snippet/title,snippet/description,snippet/channelTitle,id,kind,statistics,contentDetails/duration)';
                 options.part = options.part || 'snippet,statistics,contentDetails';
                 options.api_key = options.api_key || youtube.config.api.key;
-                options.callback = options.callback || function(json) { engine.log(json); };
-                options.error_callback = options.error_callback || function(error) { engine.log(error); };
+                options.callback = options.callback || function (json) { engine.log(json); };
+                options.error_callback = options.error_callback || function (error) { engine.log(error); };
 
                 youtube.getJSON({
                     url: youtube.config.api.url.format({
@@ -366,7 +366,7 @@ registerPlugin({
                 });
             }
         },
-        msg: function(options) {
+        msg: function (options) {
             options = (typeof options !== "object") ? {} : options;
 
             options.text = options.text || 'ravioli ravioli';
@@ -382,13 +382,13 @@ registerPlugin({
              TODO
              - [BUG] Make sure if works in all cases
             */
-            switch(options.mode) {
+            switch (options.mode) {
                 case 1: // Private client message
                     if (options.client) {
                         if (options.text.length >= maxlength) {
                             options.client.chat(options.text.trunc(maxlength));
                             options.text = options.text.slice(maxlength, options.text.length);
-                            setTimeout(function() {
+                            setTimeout(function () {
                                 youtube.msg(options)
                             }, timeoutdelay);
                         } else {
@@ -404,7 +404,7 @@ registerPlugin({
                         if (options.text.length > maxlength) {
                             options.channel.chat(options.text.trunc(maxlength));
                             options.text = options.text.slice(maxlength, options.text.length);
-                            setTimeout(function() {
+                            setTimeout(function () {
                                 youtube.msg(options)
                             }, timeoutdelay);
                         } else {
@@ -419,14 +419,14 @@ registerPlugin({
                     if (options.text.length > maxlength) {
                         options.backend.chat(options.text.trunc(maxlength));
                         options.text = options.text.slice(maxlength, options.text.length);
-                        setTimeout(function() {
+                        setTimeout(function () {
                             youtube.msg(options)
                         }, timeoutdelay);
                     } else {
                         options.backend.chat(options.text);
                     }
                     break;
-                               }
+            }
 
         },
         commands: {
@@ -435,16 +435,16 @@ registerPlugin({
                 active: true,
                 hidden: true,
                 admin: false,
-                callback: function(data) {
+                callback: function (data) {
                     data = (typeof data !== "object") ? {} : data;
 
-                    var msg = function(text) {
+                    var msg = function (text) {
                         youtube.msg(Object.assign(data, {
                             text: text
                         }));
                     };
 
-                    var error_callback = function(error) {
+                    var error_callback = function (error) {
                         msg("Search failed (Bad request)");
                         engine.log(error);
                     };
@@ -452,7 +452,7 @@ registerPlugin({
                     youtube.api.search({
                         query: data.text,
                         fields: 'items(id)',
-                        callback: function(search) {
+                        callback: function (search) {
                             search = (typeof search !== "object") ? {} : search;
                             search.items = search.items || [];
 
@@ -462,7 +462,7 @@ registerPlugin({
                                 var playback = false;
                                 var items = search.items;
 
-                                items.forEach(function(item) {
+                                items.forEach(function (item) {
                                     item = (typeof item !== "object") ? {} : item;
                                     item.id = item.id || {};
                                     item.id.videoId = item.id.videoId || 0;
@@ -470,15 +470,15 @@ registerPlugin({
 
                                     youtube.api.video({
                                         videoId: item.id.videoId,
-                                        callback: function(video) {
-                                            var probability = youtube.config.plugin.randomplay ? (Math.random() >= ( 1.0 - (1/items.length) ) ) : true;
+                                        callback: function (video) {
+                                            var probability = youtube.config.plugin.randomplay ? (Math.random() >= (1.0 - (1 / items.length))) : true;
 
                                             youtube.callbacks.video_message({
                                                 msg: data,
                                                 video: video
                                             });
 
-                                            if (!playback && items[items.length - 1].id.videoId === video.items[ 0 ].id) {
+                                            if (!playback && items[items.length - 1].id.videoId === video.items[0].id) {
                                                 if (youtube.callbacks.video_playback({ video: video })) {
                                                     playback = true;
                                                 } else {
@@ -507,8 +507,8 @@ registerPlugin({
                 active: true,
                 hidden: false,
                 admin: false,
-                callback: function(data) {
-                    var msg = function(text) {
+                callback: function (data) {
+                    var msg = function (text) {
                         youtube.msg(Object.assign(data, {
                             text: text
                         }));
@@ -533,15 +533,15 @@ registerPlugin({
                     var videoid = youtube.config.plugin.regex.youtube.exec(data.text) || data.text;
 
                     youtube.api.video({
-                        videoId: (typeof videoid === 'object' ? videoid[ 1 ] : videoid ),
-                        callback: function(video) {
+                        videoId: (typeof videoid === 'object' ? videoid[1] : videoid),
+                        callback: function (video) {
                             youtube.callbacks.video_message({
                                 msg: data,
                                 message_format: message_format.join(''),
                                 video: video
                             });
                         },
-                        error_callback: function(err) {
+                        error_callback: function (err) {
                             msg("Search failed (Bad request)");
                         }
                     });
@@ -552,8 +552,8 @@ registerPlugin({
                 active: true,
                 hidden: false,
                 admin: false,
-                callback: function(data) {
-                    var msg = function(text) {
+                callback: function (data) {
+                    var msg = function (text) {
                         youtube.msg(Object.assign(data, {
                             text: text
                         }));
@@ -573,12 +573,12 @@ registerPlugin({
                     youtube.api.search({
                         query: data.text,
                         maxresults: 5,
-                        callback: function(search) {
+                        callback: function (search) {
                             search = (typeof search !== "object") ? {} : search;
                             search.items = search.items || [];
                             var items = search.items;
 
-                            items.forEach(function(item) {
+                            items.forEach(function (item) {
                                 engine.log(item);
                                 item = (typeof item !== "object") ? {} : item;
                                 item.id = item.id || {};
@@ -598,7 +598,7 @@ registerPlugin({
                                 });
                             });
                         },
-                        error_callback: function(err) {
+                        error_callback: function (err) {
                             msg("Search failed (Bad request)");
                         }
                     });
@@ -609,7 +609,7 @@ registerPlugin({
                 active: true,
                 hidden: false,
                 admin: false,
-                callback: function(data) {
+                callback: function (data) {
                     var bot = backend.getBotClient();
 
                     youtube.msg(Object.assign(data, {
@@ -626,7 +626,7 @@ registerPlugin({
                 active: true,
                 hidden: false,
                 admin: true,
-                callback: function(data) {
+                callback: function (data) {
                     data = (typeof data !== "object") ? {} : data;
                     data.mode = 1;
 
@@ -638,7 +638,7 @@ registerPlugin({
 
                     youtube.msg(Object.assign(data, {
                         text: 'Api Key renewed from {old_key} to {key}'.format({
-                            key:  youtube.config.api.key,
+                            key: youtube.config.api.key,
                             old_key: old_key
                         })
                     }));
@@ -649,11 +649,11 @@ registerPlugin({
                 active: true,
                 hidden: false,
                 admin: true,
-                callback: function(data) {
-                    var msg = function(text) {
+                callback: function (data) {
+                    var msg = function (text) {
                         youtube.msg(Object.assign(data, {
                             text: text
-                        }));  
+                        }));
                     };
                     var bot = backend.getBotClient();
 
@@ -674,7 +674,7 @@ registerPlugin({
                 active: true,
                 hidden: true,
                 admin: true,
-                callback: function(data) {
+                callback: function (data) {
                     data = (typeof data !== "object") ? {} : data;
 
                     youtube.msg(Object.assign(data, {
@@ -684,9 +684,9 @@ registerPlugin({
                     engine.log(sinusbot);
                 }
             },
-            getCommands: function() {
+            getCommands: function () {
                 var commands = [];
-                Object.keys(youtube.commands).forEach(function(key) {
+                Object.keys(youtube.commands).forEach(function (key) {
                     var command = youtube.commands[key];
                     if (command.active && !command.hidden) {
                         commands.push(key);
@@ -696,7 +696,7 @@ registerPlugin({
             }
         },
         callbacks: {
-            video_message: function(data) {
+            video_message: function (data) {
                 data = (typeof data !== "object") ? {} : data;
 
                 data.video = data.video || {};
@@ -704,15 +704,15 @@ registerPlugin({
 
                 data.message_format = data.message_format || youtube.config.plugin.command_message;
 
-                var msg = function(text) {
+                var msg = function (text) {
                     youtube.msg(Object.assign(data.msg, {
                         text: text
-                    }));  
+                    }));
                 };
 
                 data.video.items = data.video.items || [];
 
-                data.video.items.forEach(function(item) {
+                data.video.items.forEach(function (item) {
                     item = (typeof item !== "object") ? {} : item;
                     item.kind = item.kind || 'default';
                     item.id = item.id || 0;
@@ -735,8 +735,7 @@ registerPlugin({
                 });
 
                 if (data.video.items.length > 0) {
-                    var item = data.video.items[ 0 ];
-                    var str_vars = [];
+                    var item = data.video.items[0];
 
                     if (item.kind === 'youtube#video') {
                         var str_var = {
@@ -764,13 +763,13 @@ registerPlugin({
                     msg("Search failed (Nothing found)");
                 }
             },
-            video_playback: function(data) {
+            video_playback: function (data) {
                 data = (typeof data !== "object") ? {} : data;
 
                 data.video = data.video || {};
                 data.video.items = data.video.items || [];
 
-                data.video.items.forEach(function(item) {
+                data.video.items.forEach(function (item) {
                     item = (typeof item !== "object") ? {} : item;
                     item.kind = item.kind || 'default';
                     item.id = item.id || 0;
@@ -784,20 +783,20 @@ registerPlugin({
                 if (data.video.items.length > 0) {
                     var media = require('media');
 
-                    var video = data.video.items[ 0 ];
+                    var video = data.video.items[0];
 
                     var playable = {
-                        title: function() {
+                        title: function () {
                             var video_title = video.snippet.title.toLowerCase();
                             var blacklist = false;
-                            youtube.config.plugin.yt_titleblacklist.forEach(function(word) {
+                            youtube.config.plugin.yt_titleblacklist.forEach(function (word) {
                                 if (!blacklist && video_title.indexOf(word.toLowerCase()) !== -1) {
                                     blacklist = true;
                                 }
                             });
                             return (blacklist ? false : true);
                         },
-                        duration: function() {
+                        duration: function () {
                             var video_duration = convert_time(video.contentDetails.duration);
                             if (video_duration <= youtube.config.plugin.yt_maxduration) return true;
                             return false;
@@ -816,7 +815,7 @@ registerPlugin({
                     */
                     switch (youtube.config.plugin.ytdl_action) {
                         case 1: // Download
-                            if(media.ytdl(videoId, (queue ? false : true))) {
+                            if (media.ytdl(videoId, (queue ? false : true))) {
                                 engine.log("Donwload: " + videoId);
                             } else {
                                 engine.log("Can't download: " + videoId);
@@ -830,7 +829,6 @@ registerPlugin({
                                 }
                             }
                             return true;
-                            break;
                         case 2: // Stream
                             if (queue) {
                                 // media.enqueueYt(videoId);
@@ -843,15 +841,13 @@ registerPlugin({
                                 if (media.yt(videoId)) {
                                     engine.log("Streaming: " + videoId);
                                 } else {
-                                    engine.log("Can't Streaming: " + videoId); 
+                                    engine.log("Can't Streaming: " + videoId);
                                 }
                             }
                             return true;
-                            break;
                         default: // Nothing
                             return true;
-                            break;
-                                                             }
+                    }
                 }
                 return false;
             }
@@ -859,7 +855,7 @@ registerPlugin({
     };
 
     // Chat event
-    event.on('chat', function(ev) {
+    event.on('chat', function (ev) {
         var client = ev.client;
         var channel = ev.channel;
         var bot = backend.getBotClient();
@@ -874,19 +870,19 @@ registerPlugin({
         */
         var permission = {
             config: {
-                group: youtube.config.plugin.server_groups.map(function(arr) {
+                group: youtube.config.plugin.server_groups.map(function (arr) {
                     return arr.group;
                 }),
-                client: youtube.config.plugin.adminpermissions.map(function(arr) {
+                client: youtube.config.plugin.adminpermissions.map(function (arr) {
                     return arr.user;
                 }),
                 banned: youtube.config.plugin.blacklistusers
             },
             group: {
-                has_permission: function() {
+                has_permission: function () {
                     if (permission.config.group.length > 0) {
                         var has_permission = false;
-                        client.getServerGroups().forEach(function(group) {
+                        client.getServerGroups().forEach(function (group) {
                             if ((!has_permission) && ((permission.config.group.indexOf(group.name()) > -1) || (permission.config.group.indexOf(group.id()) > -1))) {
                                 has_permission = true;
                             }
@@ -894,17 +890,17 @@ registerPlugin({
                         return has_permission;
                     }
                     return true;
-                } 
+                }
             },
             client: {
-                is_banned: function() {
+                is_banned: function () {
                     if (permission.config.banned.length > 0) {
                         if ((permission.config.banned.indexOf(client.name()) > -1) || (permission.config.banned.indexOf(client.uniqueID()) > -1))
                             return true;
                     }
                     return false;
                 },
-                is_admin: function() {
+                is_admin: function () {
                     if (permission.config.client.length > 0) {
                         if ((permission.config.client.indexOf(client.name()) > -1) || (permission.config.client.indexOf(client.uniqueID()) > -1))
                             return true;
@@ -925,9 +921,9 @@ registerPlugin({
         var cmd, par, text;
         // Regex text: !{command}[-{area}] {text}
         if ((text = youtube.config.plugin.regex.cmd.exec(ev.text)) !== null) {
-            cmd = text[ 1 ].toLowerCase(); // command trigger
-            par = text[ 2 ]; // command area
-            text = text[ 3 ]; // args
+            cmd = text[1].toLowerCase(); // command trigger
+            par = text[2]; // command area
+            text = text[3]; // args
 
             // Chat command equals to command trigger
             if (cmd === youtube.config.plugin.command_trigger.toLowerCase() && main_cmd.active) {
@@ -937,8 +933,8 @@ registerPlugin({
                     // sub-command exists on script
                     if (par in youtube.commands) {
                         // Command have a callback function
-                        if ('callback' in youtube.commands[ par ] && typeof youtube.commands[ par ].callback === 'function') {
-                            var command = youtube.commands[ par ];
+                        if ('callback' in youtube.commands[par] && typeof youtube.commands[par].callback === 'function') {
+                            var command = youtube.commands[par];
 
                             // Command is turned off
                             if (!command.active) return;
@@ -1008,11 +1004,11 @@ registerPlugin({
         } else {
             var videoId;
             if (youtube.config.plugin.catch_url && (videoId = youtube.config.plugin.regex.youtube.exec(ev.text)) !== null) {
-                videoId = videoId[ 1 ];
+                videoId = videoId[1];
                 // trigger search {videoId}
                 youtube.api.video({
                     videoId: videoId,
-                    callback: function(data) {
+                    callback: function (data) {
                         youtube.callbacks.video_message({
                             video: data,
                             msg: msg
@@ -1024,7 +1020,7 @@ registerPlugin({
                             });
                         }
                     },
-                    error_callback: function(data) {
+                    error_callback: function (data) {
                         youtube.msg(Object.assign(msg, {
                             text: "Invalid request (Bad request)"
                         }));
@@ -1034,7 +1030,7 @@ registerPlugin({
         }
     });
 
-    event.on('unload', function() {
+    event.on('unload', function () {
         engine.log(config);
     });
 });
