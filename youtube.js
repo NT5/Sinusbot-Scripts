@@ -131,7 +131,7 @@ registerPlugin({
                 return str;
             }
             var args = typeof arguments[0];
-            args = (("string" == args || "number" == args) ? arguments : arguments[0]);
+            args = (("string" === args || "number" === args) ? arguments : arguments[0]);
             for (var arg in args) {
                 str = str.replace(RegExp("\\{" + arg + "\\}", "gi"), args[arg]);
             }
@@ -144,15 +144,15 @@ registerPlugin({
         if (this.length <= n) { return this; }
         var subString = this.substr(0, n - 1);
         return (useWordBoundary
-            ? subString.substr(0, subString.lastIndexOf(' '))
-            : subString) + "...";
+                ? subString.substr(0, subString.lastIndexOf(' '))
+                : subString) + "...";
     };
 
     // Polyfill util https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/assign#Polyfill
-    if (typeof Object.assign != 'function') {
+    if (typeof Object.assign !== 'function') {
         Object.assign = function (target, varArgs) { // .length of function is 2
             'use strict';
-            if (target == null) { // TypeError if undefined or null
+            if (target === null) { // TypeError if undefined or null
                 throw new TypeError('Cannot convert undefined or null to object');
             }
 
@@ -161,7 +161,7 @@ registerPlugin({
             for (var index = 1; index < arguments.length; index++) {
                 var nextSource = arguments[index];
 
-                if (nextSource != null) { // Skip over if undefined or null
+                if (nextSource !== null) { // Skip over if undefined or null
                     for (var nextKey in nextSource) {
                         // Avoid bugs when hasOwnProperty is shadowed
                         if (Object.prototype.hasOwnProperty.call(nextSource, nextKey)) {
@@ -174,47 +174,47 @@ registerPlugin({
         };
     }
 
-    // dateformat youtube apiv3 to seconds http://stackoverflow.com/questions/22148885
-    function convert_time(duration) {
+    // Dateformat youtube apiv3 to seconds http://stackoverflow.com/questions/22148885
+    function convert_time (duration) {
         var a = duration.match(/\d+/g);
 
-        if (duration.indexOf('M') >= 0 && duration.indexOf('H') == -1 && duration.indexOf('S') == -1) {
+        if (duration.indexOf('M') >= 0 && duration.indexOf('H') === -1 && duration.indexOf('S') === -1) {
             a = [0, a[0], 0];
         }
 
-        if (duration.indexOf('H') >= 0 && duration.indexOf('M') == -1) {
+        if (duration.indexOf('H') >= 0 && duration.indexOf('M') === -1) {
             a = [a[0], 0, a[1]];
         }
-        if (duration.indexOf('H') >= 0 && duration.indexOf('M') == -1 && duration.indexOf('S') == -1) {
+        if (duration.indexOf('H') >= 0 && duration.indexOf('M') === -1 && duration.indexOf('S') === -1) {
             a = [a[0], 0, 0];
         }
 
         duration = 0;
 
-        if (a.length == 3) {
+        if (a.length === 3) {
             duration = duration + parseInt(a[0]) * 3600;
             duration = duration + parseInt(a[1]) * 60;
             duration = duration + parseInt(a[2]);
         }
 
-        if (a.length == 2) {
+        if (a.length === 2) {
             duration = duration + parseInt(a[0]) * 60;
             duration = duration + parseInt(a[1]);
         }
 
-        if (a.length == 1) {
+        if (a.length === 1) {
             duration = duration + parseInt(a[0]);
         }
         return duration
     }
 
     // H:M:S
-    function toHHMMSS(secs) {
+    function toHHMMSS (secs) {
         var sec_num = parseInt(secs, 10);
         var hours = Math.floor(sec_num / 3600) % 24;
         var minutes = Math.floor(sec_num / 60) % 60;
         var seconds = sec_num % 60;
-        // return [hours,minutes,seconds];
+        // Return [hours,minutes,seconds];
         return '{hours}{minutes}{seconds}'.format({
             hours: (hours > 0 ? hours + "h " : ''),
             minutes: (minutes > 0 ? minutes + "min " : ''),
@@ -223,7 +223,7 @@ registerPlugin({
     }
 
     // {000,000,...}
-    function addCommas(nStr) {
+    function addCommas (nStr) {
         nStr += '';
         var x = nStr.split('.'),
             x1 = x[0],
@@ -236,14 +236,14 @@ registerPlugin({
     }
 
     // URL format util http://stackoverflow.com/questions/1714786/
-    function URLSerialize(obj, prefix) {
+    function URLSerialize (obj, prefix) {
         var str = [], p;
         for (p in obj) {
             if (obj.hasOwnProperty(p)) {
                 var k = prefix ? prefix + "[" + p + "]" : p, v = obj[p];
                 str.push((v !== null && typeof v === "object") ?
-                    URLSerialize(v, k) :
-                    encodeURIComponent(k) + "=" + encodeURIComponent(v));
+                         URLSerialize(v, k) :
+                         encodeURIComponent(k) + "=" + encodeURIComponent(v));
             }
         }
         return str.join("&");
@@ -298,7 +298,7 @@ registerPlugin({
                 url: options.url,
                 headers: options.headers
             }, function (err, res) {
-                if (err || res.statusCode != 200) {
+                if (err || res.statusCode !== 200) {
                     engine.log('Request error [{error}] Code: [{code}] Data: [{data}]'.format({
                         error: err,
                         data: res.data,
@@ -306,7 +306,7 @@ registerPlugin({
                     }));
                     options.error_callback(err);
                 } else {
-                    // engine.log(res);
+                    // Engine.log(res);
                     var json = JSON.parse(res.data);
                     options.callback(json);
                 }
@@ -779,7 +779,7 @@ registerPlugin({
                     item.contentDetails.duration = item.contentDetails.duration || '0S';
                 });
 
-                // check for valid json
+                // Check for valid json
                 if (data.video.items.length > 0) {
                     var media = require('media');
 
@@ -821,7 +821,7 @@ registerPlugin({
                                 engine.log("Can't download: " + videoId);
                             }
                             if (queue) {
-                                // media.enqueueYt(videoId);
+                                // Media.enqueueYt(videoId);
                                 if (sinusbot.qyt(videoId)) {
                                     engine.log("Append to queue: " + videoId);
                                 } else {
@@ -831,7 +831,7 @@ registerPlugin({
                             return true;
                         case 2: // Stream
                             if (queue) {
-                                // media.enqueueYt(videoId);
+                                // Media.enqueueYt(videoId);
                                 if (sinusbot.qyt(videoId)) {
                                     engine.log("Append to queue: " + videoId);
                                 } else {
@@ -921,16 +921,16 @@ registerPlugin({
         var cmd, par, text;
         // Regex text: !{command}[-{area}] {text}
         if ((text = youtube.config.plugin.regex.cmd.exec(ev.text)) !== null) {
-            cmd = text[1].toLowerCase(); // command trigger
-            par = text[2]; // command area
-            text = text[3]; // args
+            cmd = text[1].toLowerCase(); // Command trigger
+            par = text[2]; // Command area
+            text = text[3]; // Args
 
             // Chat command equals to command trigger
             if (cmd === youtube.config.plugin.command_trigger.toLowerCase() && main_cmd.active) {
                 // If have a sub-command
                 if (par) {
                     par = par.toLocaleLowerCase();
-                    // sub-command exists on script
+                    // Sub-command exists on script
                     if (par in youtube.commands) {
                         // Command have a callback function
                         if ('callback' in youtube.commands[par] && typeof youtube.commands[par].callback === 'function') {
@@ -948,7 +948,7 @@ registerPlugin({
 
                             // If the command have a syntax to work
                             if (command.syntax) {
-                                // check if chat have text
+                                // Check if chat have text
                                 if (text) {
                                     command.callback(Object.assign({
                                         text: text
@@ -987,7 +987,7 @@ registerPlugin({
                         }, msg));
                     }
                 } else if (text) {
-                    // trigger search {text}
+                    // Trigger search {text}
                     main_cmd.callback(Object.assign({
                         text: text
                     }, msg));
@@ -1005,7 +1005,7 @@ registerPlugin({
             var videoId;
             if (youtube.config.plugin.catch_url && (videoId = youtube.config.plugin.regex.youtube.exec(ev.text)) !== null) {
                 videoId = videoId[1];
-                // trigger search {videoId}
+                // Trigger search {videoId}
                 youtube.api.video({
                     videoId: videoId,
                     callback: function (data) {
