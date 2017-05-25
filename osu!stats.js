@@ -27,7 +27,7 @@ registerPlugin({
             ]
         }
     ]
-}, function(sinusbot, config) {
+}, function (sinusbot, config) {
 
     var backend = require('backend');
     var engine = require('engine');
@@ -35,14 +35,14 @@ registerPlugin({
 
     // String format util
     if (!String.prototype.format) {
-        String.prototype.format = function() {
+        String.prototype.format = function () {
             var str = this.toString();
             if (!arguments.length) {
                 return str;
             }
-            var args = typeof arguments[0],
-                args = (("string" == args || "number" == args) ? arguments : arguments[0]);
-            for (arg in args) {
+            var args = typeof arguments[0];
+            args = (("string" === args || "number" === args) ? arguments : arguments[0]);
+            for (var arg in args) {
                 str = str.replace(RegExp("\\{" + arg + "\\}", "gi"), args[arg]);
             }
             return str;
@@ -65,7 +65,7 @@ registerPlugin({
                 message: config.text_format || 'Player: {player_name} - Play Count: {play_count} - Ranked Score: {ranked_score} - Total Score: {total_score} - PP: {pp_raw} - Accuracy: {accuracy}% - Level: {level} - Country: {country}'
             }
         },
-        msg: function(options) {
+        msg: function (options) {
             options = (typeof options !== "object") ? {} : options;
 
             options.text = options.text || '';
@@ -83,7 +83,7 @@ registerPlugin({
                     if (options.client) {
                         options.client.chat(options.text);
                     } else {
-                        youtube.msg({
+                        osu.msg({
                             text: options.text,
                             backend: options.backend,
                             mode: 0
@@ -94,7 +94,7 @@ registerPlugin({
                     if (options.channel) {
                         options.channel.chat(options.text);
                     } else {
-                        youtube.msg({
+                        osu.msg({
                             text: options.text,
                             backend: options.backend,
                             mode: 0
@@ -104,17 +104,17 @@ registerPlugin({
                 default: // Server message
                     options.backend.chat(options.text);
                     break;
-                               }
+            }
 
         },
-        fetch: function(options) {
+        fetch: function (options) {
             options = (typeof options !== "object") ? {} : options;
 
             options.api_key = options.api_key || osu.config.api.key;
             options.player = options.player || 'peppy';
             options.gamemode = options.gamemode || 0;
-            options.callback = options.callback || function(json) { engine.log(json); };
-            options.error_callback = options.error_callback || function(error) { engine.log(error); };
+            options.callback = options.callback || function (json) { engine.log(json); };
+            options.error_callback = options.error_callback || function (error) { engine.log(error); };
 
             /*
              TODO
@@ -126,8 +126,8 @@ registerPlugin({
                 headers: {
                     'Content-Type': 'application/json; charset=UTF-8'
                 }
-            }, function(err, res) {
-                if (err || res.statusCode != 200) {
+            }, function (err, res) {
+                if (err || res.statusCode !== 200) {
                     options.error_callback(err);
                 } else {
                     var json = JSON.parse(res.data);
@@ -137,7 +137,7 @@ registerPlugin({
         },
         callbacks: {
             fetch: {
-                done: function(client, channel, mode, data) {
+                done: function (client, channel, mode, data) {
                     if (data.length > 0) {
                         data = data[0];
 
@@ -169,7 +169,7 @@ registerPlugin({
                         });
                     }
                 },
-                error: function(client, channel, mode, data) {
+                error: function (client, channel, mode, data) {
                     osu.msg({
                         text: "Search failed (Bad request)",
                         channel: channel,
@@ -180,21 +180,22 @@ registerPlugin({
             }
         },
         util: {
-            addCommas: function(nStr) {
+            addCommas: function (nStr) {
                 nStr += '';
-                x = nStr.split('.');
-                x1 = x[0];
-                x2 = x.length > 1 ? '.' + x[1] : '';
-                var rgx = /(\d+)(\d{3})/;
+                var x = nStr.split('.'),
+                    x1 = x[0],
+                    x2 = x.length > 1 ? '.' + x[1] : '',
+                    rgx = /(\d+)(\d{3})/;
+
                 while (rgx.test(x1)) {
                     x1 = x1.replace(rgx, '$1' + ',' + '$2');
                 }
                 return x1 + x2;
-            }  
+            }
         }
     };
 
-    event.on('chat', function(ev) {
+    event.on('chat', function (ev) {
         var client = ev.client;
         var channel = ev.channel;
 
@@ -204,10 +205,10 @@ registerPlugin({
 
         // Regex text: !{command} {text}
         if ((text = osu.config.plugin.regex.cmd.exec(ev.text)) !== null) {
-            cmd = text[1].toLowerCase(); // command trigger
-            text = text[2]; // args
+            cmd = text[1].toLowerCase(); // Command trigger
+            text = text[2]; // Args
             if (cmd === osu.config.plugin.trigger.toLowerCase() && text.length > 0) {
-                // trigger command {text}
+                // Trigger command {text}
                 var gm_regx, gamemode, player;
                 if ((gm_regx = osu.config.plugin.regex.gamemode.exec(text)) !== null) {
                     gamemode = gm_regx[1];
@@ -225,7 +226,7 @@ registerPlugin({
                         default:
                             gamemode = 0;
                             break;
-                                                  }
+                    }
                 } else {
                     gamemode = config.default_gamemode;
                     player = text;
@@ -234,10 +235,10 @@ registerPlugin({
                 osu.fetch({
                     player: player,
                     gamemode: gamemode,
-                    callback: function(data) {
+                    callback: function (data) {
                         osu.callbacks.fetch.done(client, channel, ev.mode, data);
                     },
-                    error_callback: function(data) {
+                    error_callback: function (data) {
                         osu.callbacks.fetch.error(client, channel, ev.mode, data);
                     }
                 });
