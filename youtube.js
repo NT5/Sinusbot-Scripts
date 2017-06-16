@@ -1,7 +1,7 @@
 registerPlugin({
     name: 'Youtube Search',
-    version: '1.3.0',
-    engine: '>= 0.9.17',
+    version: '1.3.1',
+    engine: '>= 0.9.20',
     description: 'Youtube video search',
     author: 'NT5',
     vars: [
@@ -306,7 +306,6 @@ registerPlugin({
                     }));
                     options.error_callback(err);
                 } else {
-                    // Engine.log(res);
                     var json = JSON.parse(res.data);
                     options.callback(json);
                 }
@@ -358,6 +357,56 @@ registerPlugin({
                             id: options.videoId,
                             part: options.part,
                             fields: options.fields,
+                            key: options.api_key
+                        })
+                    }),
+                    callback: options.callback,
+                    error_callback: options.error_callback
+                });
+            },
+            playlist: function (options) {
+                options = (typeof options !== "object") ? {} : options;
+
+                options.playlistId = options.playlistId || 0;
+                options.part = options.part || 'snippet';
+                options.fields = options.fields || 'items(snippet/title,snippet/description,snippet/channelTitle,id,kind)';
+                options.maxResults = options.maxResults || 1;
+                options.api_key = options.api_key || youtube.config.api.key;
+                options.callback = options.callback || function (json) { engine.log(json); };
+                options.error_callback = options.error_callback || function (error) { engine.log(error); };
+
+                youtube.getJSON({
+                    url: youtube.config.api.url.format({
+                        path: 'playlists',
+                        fields: URLSerialize({
+                            id: options.playlistId,
+                            maxResults: options.maxResults,
+                            part: options.part,
+                            key: options.api_key
+                        })
+                    }),
+                    callback: options.callback,
+                    error_callback: options.error_callback
+                });
+            },
+            playlistItems: function (options) {
+                options = (typeof options !== "object") ? {} : options;
+
+                options.playlistId = options.playlistId || 0;
+                options.pageToken = options.pageToken || false;
+                options.part = options.part || 'contentDetails';
+                options.maxResults = options.maxResults || 50;
+                options.api_key = options.api_key || youtube.config.api.key;
+                options.callback = options.callback || function (json) { engine.log(json); };
+                options.error_callback = options.error_callback || function (error) { engine.log(error); };
+
+                youtube.getJSON({
+                    url: youtube.config.api.url.format({
+                        path: 'playlistItems',
+                        fields: URLSerialize({
+                            playlistId: options.playlistId,
+                            maxResults: options.maxResults,
+                            part: options.part,
                             key: options.api_key
                         })
                     }),
@@ -604,6 +653,35 @@ registerPlugin({
                     });
                 }
             },
+            'playlist': {
+                syntax: '!{cmd}-{par} <playlist-id/playlist-link>',
+                active: false,
+                hidden: false,
+                admin: false,
+                callback: function (data) {
+                    data = (typeof data !== "object") ? {} : data;
+
+                    var msg = function (text) {
+                        youtube.msg(Object.assign(data, {
+                            text: text
+                        }));
+                    };
+
+                    var playListId = data.text; // PLer7LLaCGeKcmzK7V8rK2WqAj4kKligOW
+
+                    youtube.api.playlist({
+                        playlistId: playListId,
+                        callback: function (playlist) {
+                            var item = playlist.items[0];
+                            msg('{0} {1} {2}'.format(
+                                item.snippet.title,
+                                item.snippet.channelTitle,
+                                item.id
+                            ));
+                        }
+                    });
+                }
+            },
             'about': {
                 syntax: false,
                 active: true,
@@ -614,7 +692,7 @@ registerPlugin({
 
                     youtube.msg(Object.assign(data, {
                         text: 'Youtube Search script v{version} by {author} running on {bot_name}'.format({
-                            version: '1.3.0',
+                            version: '1.3.1',
                             author: 'NT5',
                             bot_name: bot.name()
                         })
@@ -671,17 +749,15 @@ registerPlugin({
             },
             'test': {
                 syntax: false,
-                active: true,
+                active: false,
                 hidden: true,
                 admin: true,
                 callback: function (data) {
                     data = (typeof data !== "object") ? {} : data;
 
                     youtube.msg(Object.assign(data, {
-                        text: '{0}'.format(backend.getBotClient().uniqueID())
+                        text: null
                     }));
-
-                    engine.log(sinusbot);
                 }
             },
             getCommands: function () {
@@ -815,24 +891,23 @@ registerPlugin({
                     */
                     switch (youtube.config.plugin.ytdl_action) {
                         case 1: // Download
-                            if (media.ytdl(videoId, (queue ? false : true))) {
-                                engine.log("Donwload: " + videoId);
-                            } else {
-                                engine.log("Can't download: " + videoId);
-                            }
                             if (queue) {
-                                // Media.enqueueYt(videoId);
-                                if (sinusbot.qyt(videoId)) {
-                                    engine.log("Append to queue: " + videoId);
+                                if (media.enqueueYtdl(videoId)) {
+                                    engine.log("Download & append to queue: " + videoId);
                                 } else {
                                     engine.log("Cannot enqueue: " + videoId);
+                                }
+                            } else {
+                                if (media.ytdl(videoId, (queue ? false : true))) {
+                                    engine.log("Donwload & play: " + videoId);
+                                } else {
+                                    engine.log("Can't download: " + videoId);
                                 }
                             }
                             return true;
                         case 2: // Stream
                             if (queue) {
-                                // Media.enqueueYt(videoId);
-                                if (sinusbot.qyt(videoId)) {
+                                if (media.enqueueYt(videoId)) {
                                     engine.log("Append to queue: " + videoId);
                                 } else {
                                     engine.log("Cannot enqueue: " + videoId);
