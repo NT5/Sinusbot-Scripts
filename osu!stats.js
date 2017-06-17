@@ -42,7 +42,7 @@ registerPlugin({
             }
             var args = typeof arguments[0];
             args = (("string" === args || "number" === args) ? arguments : arguments[0]);
-            for (var arg in args) {
+            for (arg in args) {
                 str = str.replace(RegExp("\\{" + arg + "\\}", "gi"), args[arg]);
             }
             return str;
@@ -83,7 +83,7 @@ registerPlugin({
                     if (options.client) {
                         options.client.chat(options.text);
                     } else {
-                        osu.msg({
+                        youtube.msg({
                             text: options.text,
                             backend: options.backend,
                             mode: 0
@@ -94,7 +94,7 @@ registerPlugin({
                     if (options.channel) {
                         options.channel.chat(options.text);
                     } else {
-                        osu.msg({
+                        youtube.msg({
                             text: options.text,
                             backend: options.backend,
                             mode: 0
@@ -182,11 +182,10 @@ registerPlugin({
         util: {
             addCommas: function (nStr) {
                 nStr += '';
-                var x = nStr.split('.'),
-                    x1 = x[0],
-                    x2 = x.length > 1 ? '.' + x[1] : '',
-                    rgx = /(\d+)(\d{3})/;
-
+                x = nStr.split('.');
+                x1 = x[0];
+                x2 = x.length > 1 ? '.' + x[1] : '';
+                var rgx = /(\d+)(\d{3})/;
                 while (rgx.test(x1)) {
                     x1 = x1.replace(rgx, '$1' + ',' + '$2');
                 }
