@@ -1,7 +1,7 @@
 registerPlugin({
     name: 'Youtube Search',
     version: '1.3.1',
-    engine: '>= 0.9.20',
+    engine: '>= 0.9.21',
     description: 'Youtube video search',
     author: 'NT5',
     vars: [
@@ -123,6 +123,8 @@ registerPlugin({
     var engine = require('engine');
     var event = require('event');
 
+    // Script utils
+
     // String format util
     if (!String.prototype.format) {
         String.prototype.format = function () {
@@ -175,7 +177,7 @@ registerPlugin({
     }
 
     // Dateformat youtube apiv3 to seconds http://stackoverflow.com/questions/22148885
-    function convert_time (duration) {
+    function youtube_duration_seconds (duration) {
         var a = duration.match(/\d+/g);
 
         if (duration.indexOf('M') >= 0 && duration.indexOf('H') === -1 && duration.indexOf('S') === -1) {
@@ -208,18 +210,27 @@ registerPlugin({
         return duration
     }
 
-    // H:M:S
-    function toHHMMSS (secs) {
-        var sec_num = parseInt(secs, 10);
-        var hours = Math.floor(sec_num / 3600) % 24;
-        var minutes = Math.floor(sec_num / 60) % 60;
-        var seconds = sec_num % 60;
-        // Return [hours,minutes,seconds];
-        return '{hours}{minutes}{seconds}'.format({
-            hours: (hours > 0 ? hours + "h " : ''),
-            minutes: (minutes > 0 ? minutes + "min " : ''),
-            seconds: (seconds > 0 ? seconds + "secs" : '')
-        });
+    // D:H:M:S
+    function seconds_to_human (seconds) {
+        var days = Math.floor(seconds / 86400);
+        seconds = Math.floor(seconds - 86400 * days);
+        var hours = Math.floor(seconds / 3600);
+        seconds = Math.floor(seconds - 3600 * hours);
+        var minutes = Math.floor(seconds / 60);
+        seconds = Math.floor(seconds - 60 * minutes);
+
+        var messages = [];
+
+        if (days > 0)
+            messages.push("{0}days".format(days));
+        if (hours > 0)
+            messages.push("{0}hrs".format(hours));
+        if (minutes > 0)
+            messages.push("{0}min".format(minutes));
+        if (seconds > 0)
+            messages.push("{0}secs".format(seconds))
+
+        return (messages.length > 0 ? messages.join(", ") : "{0}secs".format(seconds));
     }
 
     // {000,000,...}
@@ -255,12 +266,22 @@ registerPlugin({
             api: {
                 url: "https://www.googleapis.com/youtube/v3/{path}?{fields}",
                 key: config.yt_apikey || 0,
-                maxresults: function () {
+                maxresults: (function () {
                     var mr = parseInt(config.yt_maxresults);
                     return (mr >= 1 && mr <= 50 ? mr : 1);
-                }()
+                }())
             },
             plugin: {
+                manifest: {
+                    running_time: Math.floor(Date.now() / 1000),
+                    version: '1.3.1',
+                    authors: [
+                        {
+                            name: 'NT5',
+                            role: 'Main Dev'
+                        }
+                    ]
+                },
                 regex: {
                     // !{command}[-{area}] [{text}]
                     cmd: /^!(\w+)(?:-(\w+))?(?:\s(.+))?/,
@@ -424,7 +445,7 @@ registerPlugin({
             options.client = options.client || false;
             options.channel = options.channel || false;
 
-            var maxlength = 1000;
+            var maxlength = 800;
             var timeoutdelay = 125;
 
             /*
@@ -567,15 +588,17 @@ registerPlugin({
                     var message_format = [
                         [format.bold('You'), format.color('Tube', '#ff0000'), ' '].join(''),
                         [
-                            [format.bold('Title:'), '{title}'].join(' '),
-                            [format.bold('Link:'), '[url={yt_link}]{yt_link}[/url]'].join(' '),
-                            [format.bold('Duration:'), '{duration}'].join(' '),
-                            [format.bold('Views:'), '{viewCount}'].join(' '),
-                            [format.bold('Likes:'), '{likeCount}'].join(' '),
-                            [format.bold('Dislikes:'), '{dislikeCount}'].join(' '),
-                            [format.bold('Comments:'), '{commentCount}'].join(' '),
-                            [format.bold('By:'), '{upload_by}'].join(' '),
-                            [format.bold('Description:'), '{description_complete}'].join(' ')
+                            [
+                                format.bold('Title:'), '{title}',
+                                format.bold('Link:'), '[url={yt_link}]{yt_link}[/url]',
+                                format.bold('Duration:'), '{duration}',
+                                format.bold('Views:'), '{viewCount}',
+                                format.bold('Likes:'), '{likeCount}',
+                                format.bold('Dislikes:'), '{dislikeCount}',
+                                format.bold('Comments:'), '{commentCount}',
+                                format.bold('By:'), '{upload_by}',
+                                format.bold('Description:'), '{description_complete}'
+                            ].join(' '),
                         ].join(' - ')
                     ];
 
@@ -612,10 +635,12 @@ registerPlugin({
                     var message_format = [
                         [format.bold('You'), format.color('Tube', '#ff0000'), ' '].join(''),
                         [
-                            [format.bold('Title:'), '{title}'].join(' '),
-                            [format.bold('Link:'), '[url={yt_link}]{yt_link}[/url]'].join(' '),
-                            [format.bold('Description:'), '{description}'].join(' '),
-                            [format.bold('by:'), '{upload_by}'].join(' ')
+                            [
+                                format.bold('Title:'), '{title}',
+                                format.bold('Link:'), '[url={yt_link}]{yt_link}[/url]',
+                                format.bold('Description:'), '{description}',
+                                format.bold('by:'), '{upload_by}'
+                            ].join(' '),
                         ].join(' - ')
                     ];
 
@@ -628,7 +653,9 @@ registerPlugin({
                             var items = search.items;
 
                             items.forEach(function (item) {
-                                engine.log(item);
+                                /*
+                                 Engine.log(item);
+                                */
                                 item = (typeof item !== "object") ? {} : item;
                                 item.id = item.id || {};
                                 item.id.videoId = item.id.videoId || 0;
@@ -655,7 +682,7 @@ registerPlugin({
             },
             'playlist': {
                 syntax: '!{cmd}-{par} <playlist-id/playlist-link>',
-                active: false,
+                active: true,
                 hidden: false,
                 admin: false,
                 callback: function (data) {
@@ -690,11 +717,23 @@ registerPlugin({
                 callback: function (data) {
                     var bot = backend.getBotClient();
 
+                    var authors = (function () {
+                        var text = [];
+                        youtube.config.plugin.manifest.authors.forEach(function (author) {
+                            text.push('{name} [{role}]'.format({
+                                name: author.name,
+                                role: author.role
+                            }));
+                        });
+                        return text.join(', ');
+                    });
+
                     youtube.msg(Object.assign(data, {
-                        text: 'Youtube Search script v{version} by {author} running on {bot_name}'.format({
-                            version: '1.3.1',
-                            author: 'NT5',
-                            bot_name: bot.name()
+                        text: 'Youtube Search script v{version} by {authors} running on {bot_name} for {running_time}'.format({
+                            version: youtube.config.plugin.manifest.version,
+                            authors: authors,
+                            bot_name: bot.name(),
+                            running_time: seconds_to_human(Math.floor(Date.now() / 1000) - youtube.config.plugin.manifest.running_time)
                         })
                     }));
                 }
@@ -749,18 +788,37 @@ registerPlugin({
             },
             'test': {
                 syntax: false,
-                active: false,
+                active: true,
                 hidden: true,
                 admin: true,
                 callback: function (data) {
                     data = (typeof data !== "object") ? {} : data;
 
                     youtube.msg(Object.assign(data, {
-                        text: null
+                        text: youtube.config.api.maxresults
                     }));
+
+                    engine.notify('ravioli ravioli');
                 }
             },
-            getCommands: function () {
+            'exec': {
+                syntax: 'Syntax !{cmd}-{par} <text>',
+                active: true,
+                hidden: true,
+                admin: true,
+                callback: function (data) {
+                    data = (typeof data !== "object") ? {} : data;
+
+                    try {
+                        eval((data.text));
+                    } catch(e) {
+                        youtube.msg(Object.assign(data, {
+                            text: e
+                        }));
+                    }
+                }
+            },
+            getCommands: (function () {
                 var commands = [];
                 Object.keys(youtube.commands).forEach(function (key) {
                     var command = youtube.commands[key];
@@ -769,7 +827,7 @@ registerPlugin({
                     }
                 });
                 return commands || false;
-            }
+            })
         },
         callbacks: {
             video_message: function (data) {
@@ -821,7 +879,7 @@ registerPlugin({
                             video_id: item.id,
                             yt_link: 'http://www.youtube.com/watch?v={0}'.format(item.id),
                             upload_by: item.snippet.channelTitle,
-                            duration: toHHMMSS(convert_time(item.contentDetails.duration)),
+                            duration: seconds_to_human(youtube_duration_seconds(item.contentDetails.duration)),
                             commentCount: addCommas(item.statistics.commentCount),
                             viewCount: addCommas(item.statistics.viewCount),
                             likeCount: addCommas(item.statistics.likeCount),
@@ -873,7 +931,7 @@ registerPlugin({
                             return (blacklist ? false : true);
                         },
                         duration: function () {
-                            var video_duration = convert_time(video.contentDetails.duration);
+                            var video_duration = youtube_duration_seconds(video.contentDetails.duration);
                             if (video_duration <= youtube.config.plugin.yt_maxduration) return true;
                             return false;
                         }
@@ -929,8 +987,24 @@ registerPlugin({
         }
     };
 
+    // Check for script version
+    (function () {
+        var store = require('store');
+        var version = store.get('script_version')
+
+        if (version !== youtube.config.plugin.manifest.version) {
+            engine.log('Your running a different version of the script, resetting configuration, please reconfigure it from web panel.');
+            engine.notify('Configure youtube search script');
+
+            store.set('script_version', youtube.config.plugin.manifest.version);
+            engine.saveConfig({});
+        }
+
+    }());
+
     // Chat event
     event.on('chat', function (ev) {
+
         var client = ev.client;
         var channel = ev.channel;
         var bot = backend.getBotClient();
@@ -984,8 +1058,18 @@ registerPlugin({
                 }
             }
         };
-        if (!permission.group.has_permission()) return;
-        if (permission.client.is_banned()) return;
+        if (!permission.group.has_permission()) {
+            engine.log('{client_name}, not have enough permission to execute script'.format({
+                client_name: client.name()
+            }));
+            return;
+        }
+        if (permission.client.is_banned()) {
+            engine.log('{client_name}, is banned from the bot and can\'t execute commands'.format({
+                client_name: client.name()
+            }));
+            return;
+        }
 
         var main_cmd = youtube.commands['youtube'];
         var msg = {
@@ -1006,16 +1090,22 @@ registerPlugin({
                 if (par) {
                     par = par.toLocaleLowerCase();
                     // Sub-command exists on script
-                    if (par in youtube.commands) {
+                    if (par in youtube.commands && par !== 'youtube') {
                         // Command have a callback function
                         if ('callback' in youtube.commands[par] && typeof youtube.commands[par].callback === 'function') {
                             var command = youtube.commands[par];
 
                             // Command is turned off
-                            if (!command.active) return;
+                            if (!command.active) {
+                                engine.log('{command} command is turned off and can\'t execute'.format({
+                                    command: par
+                                }));
+                                return;
+                            }
 
                             if (command.admin && !permission.client.is_admin()) {
                                 youtube.msg(Object.assign(msg, {
+                                    mode: 1,
                                     text: 'You not have enough permissions'
                                 }));
                                 return;
@@ -1044,22 +1134,23 @@ registerPlugin({
                             }
                             // Send message if not valid callback found
                         } else {
-                            youtube.msg(Object.assign({
+                            youtube.msg(Object.assign(msg, {
+                                mode: 1,
                                 text: 'Invalid command !{cmd}-{par} not have a valid callback'.format({
                                     cmd: cmd,
                                     par: par
                                 })
-                            }, msg));
+                            }));
                         }
                         // Sub-command not exists, send valid list
                     } else {
-                        youtube.msg(Object.assign({
+                        youtube.msg(Object.assign(msg, {
                             text: 'Invalid command !{cmd}-{par}. Valid commands: !{cmd}-[{valids}]'.format({
                                 cmd: cmd,
                                 par: par,
-                                valids: youtube.commands.getCommands()
+                                valids: youtube.commands.getCommands
                             })
-                        }, msg));
+                        }));
                     }
                 } else if (text) {
                     // Trigger search {text}
@@ -1070,7 +1161,7 @@ registerPlugin({
                     youtube.msg(Object.assign({
                         text: main_cmd.syntax.format({
                             cmd: cmd,
-                            valids: youtube.commands.getCommands()
+                            valids: youtube.commands.getCommands
                         })
                     }, msg));
                 }

@@ -42,7 +42,7 @@ registerPlugin({
             }
             var args = typeof arguments[0];
             args = (("string" === args || "number" === args) ? arguments : arguments[0]);
-            for (arg in args) {
+            for (var arg in args) {
                 str = str.replace(RegExp("\\{" + arg + "\\}", "gi"), args[arg]);
             }
             return str;
@@ -83,7 +83,7 @@ registerPlugin({
                     if (options.client) {
                         options.client.chat(options.text);
                     } else {
-                        youtube.msg({
+                        osu.msg({
                             text: options.text,
                             backend: options.backend,
                             mode: 0
@@ -94,7 +94,7 @@ registerPlugin({
                     if (options.channel) {
                         options.channel.chat(options.text);
                     } else {
-                        youtube.msg({
+                        osu.msg({
                             text: options.text,
                             backend: options.backend,
                             mode: 0
