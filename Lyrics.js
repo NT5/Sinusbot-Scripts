@@ -120,7 +120,7 @@ registerPlugin({
             },
             api: {
                 makeitpersonal: {
-                    url: 'http://makeitpersonal.co/lyrics?artist={artist}&title={title}' 
+                    url: 'http://makeitpersonal.co/lyrics?artist={artist}&title={title}'
                 }
             }
         },
@@ -138,7 +138,6 @@ registerPlugin({
              TODO
               - [ENH] Port to new script engine
             */
-            engine.log(options.url);
             sinusbot.http({
                 method: options.method,
                 url: options.url,
@@ -180,7 +179,7 @@ registerPlugin({
                         callback: options.callback,
                         error_callback: options.error_callback
                     });
-                }   
+                }
             }
         },
         msg: function (options) {
@@ -243,7 +242,7 @@ registerPlugin({
                         options.backend.chat(options.text);
                     }
                     break;
-                                }
+            }
         },
         commands: {
             'lyrics': {
@@ -253,7 +252,7 @@ registerPlugin({
                 callback: function (data) {
                     data = (typeof data !== "object") ? {} : data;
 
-                    var msg = function(message) {
+                    var msg = function (message) {
                         app.msg({
                             mode: data.mode,
                             client: data.client,
@@ -298,7 +297,7 @@ registerPlugin({
                     });
 
                     app.msg(Object.assign(data, {
-                        text: 'Lyrics script v{version} by {authors} running on {bot_name} for {running_time}'.format({
+                        text: 'Lyrics script v{version} by {authors} running on {bot_name} for {running_time} powered by makeitpersonal.co'.format({
                             version: app.config.plugin.manifest.version,
                             authors: authors,
                             bot_name: bot.name(),
@@ -333,7 +332,7 @@ registerPlugin({
                         text: lyrics
                     });
                 },
-            });   
+            });
         }
     });
 
