@@ -212,6 +212,12 @@ registerPlugin({
 
     // D:H:M:S
     function seconds_to_human (seconds) {
+        var years = Math.floor(seconds / 31536000);
+        seconds = Math.floor(seconds - 31536000 * years);
+        var months = Math.floor(seconds / 2628000);
+        seconds = Math.floor(seconds - 2628000 * months);
+        var weeks = Math.floor(seconds / 604800);
+        seconds = Math.floor(seconds - 604800 * weeks);
         var days = Math.floor(seconds / 86400);
         seconds = Math.floor(seconds - 86400 * days);
         var hours = Math.floor(seconds / 3600);
@@ -221,6 +227,12 @@ registerPlugin({
 
         var messages = [];
 
+        if (years > 0)
+            messages.push("{0}years".format(years));
+        if (months > 0)
+            messages.push("{0}months".format(months));
+        if (weeks > 0)
+            messages.push("{0}weeks".format(weeks));
         if (days > 0)
             messages.push("{0}days".format(days));
         if (hours > 0)
@@ -443,7 +455,7 @@ registerPlugin({
             options.mode = options.mode || 0;
             options.backend = options.backend || backend;
             options.client = options.client || false;
-            options.channel = options.channel || false;
+            options.channel = options.channel || options.backend.getCurrentChannel();
 
             var maxlength = 800;
             var timeoutdelay = 125;
@@ -700,11 +712,23 @@ registerPlugin({
                         playlistId: playListId,
                         callback: function (playlist) {
                             var item = playlist.items[0];
-                            msg('{0} {1} {2}'.format(
+                            msg('{0} by {1} id: {2}'.format(
                                 item.snippet.title,
                                 item.snippet.channelTitle,
                                 item.id
                             ));
+
+                            youtube.api.playlistItems({
+                                playlistId: item.id,
+                                maxResults: 50,
+                                callback: function (pl) {
+                                    var media = require('media');
+                                    pl.items.forEach(function (item) {
+                                        msg(item.contentDetails.videoId);
+                                        // Media.enqueueYt(item.contentDetails.videoId);
+                                    });
+                                }
+                            });
                         }
                     });
                 }
@@ -799,6 +823,14 @@ registerPlugin({
                     }));
 
                     engine.notify('ravioli ravioli');
+
+                    var media = require('media');
+                    var queue = media.getQueue();
+                    queue.forEach(function (track) {
+                        youtube.msg(Object.assign(data, {
+                            text: "{0} - {1}".format(track.title(), seconds_to_human(track.duration() > 0 ? (track.duration() / 1000) : 0))
+                        }));
+                    });
                 }
             },
             'exec': {
