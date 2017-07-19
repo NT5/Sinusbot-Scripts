@@ -483,12 +483,30 @@ registerPlugin({
                         text: text
                     }, msg));
                 } else {
-                    app.msg(Object.assign({
-                        text: main_cmd.syntax.format({
-                            cmd: cmd,
-                            valids: app.commands.getCommands
-                        })
-                    }, msg));
+                    var audio = require('audio');
+
+                    if (audio.isPlaying()) {
+                        var media = require('media');
+                        var track = media.getCurrentTrack();
+
+                        app.callbacks.lyrics_message({
+                            msg: function (text) {
+                                app.msg(Object.assign(msg, {
+                                    text: text
+                                }))
+                            },
+                            title: track.title(),
+                            artist: track.artist()
+                        });
+
+                    } else {
+                        app.msg(Object.assign({
+                            text: main_cmd.syntax.format({
+                                cmd: cmd,
+                                valids: app.commands.getCommands
+                            })
+                        }, msg));
+                    }
                 }
             }
         }
