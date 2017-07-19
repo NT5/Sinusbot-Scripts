@@ -1,10 +1,28 @@
 registerPlugin({
     name: 'Lyrics',
-    version: '0.0.1',
+    version: '0.0.2',
     engine: '>= 0.9.17',
     description: 'Search Lyrics from makeitpersonal.co',
     author: 'NT5',
-    vars: []
+    vars: [
+        {
+            name: 'ly_command_trigger',
+            title: 'Command trigger',
+            type: 'string',
+            placeholder: 'lyrics'
+        },
+        {
+            name: 'ly_autosearch',
+            title: 'Automatic search for lyrics when a song start (only for upload files)',
+            type: 'checkbox'
+        },
+        {
+            name: 'ly_error_message',
+            title: 'Message format when no lyrics found',
+            type: 'multiline',
+            placeholder: 'Sorry, We don\'t have lyrics for "{song}" song yet'
+        }
+    ]
 }, function (sinusbot, config) {
 
     var backend = require('backend');
@@ -102,7 +120,7 @@ registerPlugin({
             plugin: {
                 manifest: {
                     running_time: Math.floor(Date.now() / 1000),
-                    version: '0.0.1',
+                    version: '0.0.2',
                     authors: [
                         {
                             name: 'NT5',
@@ -113,10 +131,14 @@ registerPlugin({
                 regex: {
                     // !{command}[-{area}] [{text}]
                     command: /^!(\w+)(?:-(\w+))?(?:\s(.+))?/,
-                    // {artist} - {title}
-                    lyrics_search: /(.+)(?:\s-\s)(.+)/
+                    // {artist} -,@,|,* {title}
+                    lyrics_search: /(.+)(?:\s)?(?:-|@|\*|\|)(?:\s)?(.+)/
                 },
-                command_trigger: 'lyrics'
+                command_trigger: config.ly_command_trigger  || 'lyrics',
+                autosearch: config.ly_autosearch,
+                messages: {
+                    error: config.ly_error_message || 'Sorry, We don\'t have lyrics for "{song}" song yet'
+                }
             },
             api: {
                 makeitpersonal: {
@@ -197,6 +219,7 @@ registerPlugin({
             /*
              TODO
              - [BUG] Make sure if works in all cases
+             - [BUG] Word truncate wrong
             */
             switch (options.mode) {
                 case 1: // Private client message
@@ -266,12 +289,12 @@ registerPlugin({
                         artist = text[1];
                         title = text[2];
 
-                        app.api.makeitpersonal.getLyric({
+                        app.callbacks.lyrics_message({
                             artist: artist,
                             title: title,
-                            callback: msg,
-                            error_callback: msg
+                            msg: msg
                         });
+
                     } else {
                         msg('Invalid Format. !lyrics {artits} - {song name}');
                     }
@@ -318,20 +341,57 @@ registerPlugin({
             })
         },
         callbacks: {
+            lyrics_message: function (data) {
+                data = (typeof data !== "object") ? {} : data;
+
+                app.api.makeitpersonal.getLyric({
+                    artist: data.artist,
+                    title: data.title,
+                    callback: function (lyric) {
+                        if (lyric === 'Sorry, We don\'t have lyrics for this song yet.') {
+                            data.msg(app.config.plugin.messages.error.format({
+                                song: data.title
+                            }));
+                        } else {
+                            data.msg(lyric);
+                        }
+                    },
+                    error_callback: function (err) {
+                        data.msg('Can\'t reach lyric');
+                    }
+                });
+            }
         }
     };
 
+    // Check for script version
+    (function () {
+        var store = require('store');
+        var version = store.get('script_version')
+
+        if (version !== app.config.plugin.manifest.version) {
+            engine.log('Your running a different version of the script, resetting configuration, please reconfigure it from web panel.');
+            engine.notify('Configure Lyrics script');
+
+            store.set('script_version', app.config.plugin.manifest.version);
+            engine.saveConfig({});
+        }
+
+    }());
+
     event.on('track', function (track) {
-        if (track.type() !== 'temp') {
-            app.api.makeitpersonal.getLyric({
+        if (app.config.plugin.autosearch && track.type() !== 'temp') {
+            var msg = function (text) {
+                app.msg({
+                    mode: 2,
+                    text: text
+                });
+            }
+
+            app.callbacks.lyrics_message({
                 artist: track.artist(),
                 title: track.title(),
-                callback: function (lyrics) {
-                    app.msg({
-                        mode: 2,
-                        text: lyrics
-                    });
-                },
+                msg: msg
             });
         }
     });
