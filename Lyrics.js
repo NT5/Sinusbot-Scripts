@@ -1,6 +1,6 @@
 registerPlugin({
     name: 'Lyrics',
-    version: '0.0.2',
+    version: '0.0.3',
     engine: '>= 0.9.17',
     description: 'Search Lyrics from makeitpersonal.co',
     author: 'NT5',
@@ -21,6 +21,25 @@ registerPlugin({
             title: 'Message format when no lyrics found',
             type: 'multiline',
             placeholder: 'Sorry, We don\'t have lyrics for "{song}" song yet'
+        },
+        {
+            name: 'ly_command_blacklistusers',
+            title: 'Banned users <comma saparated> ',
+            type: 'string',
+            placeholder: 'trollface, <id/username>...'
+        },
+        {
+            name: 'ly_command_permissionsServerGroups',
+            title: 'List of server groups that the bot should accept command and links (ID or Name)',
+            type: 'array',
+            vars: [
+                {
+                    name: 'group',
+                    type: 'string',
+                    indent: 2,
+                    placeholder: 'Group name or id'
+                }
+            ]
         }
     ]
 }, function (sinusbot, config) {
@@ -75,9 +94,7 @@ registerPlugin({
     String.prototype.trunc = function (n, useWordBoundary) {
         if (this.length <= n) { return this; }
         var subString = this.substr(0, n - 1);
-        return (useWordBoundary
-                ? subString.substr(0, subString.lastIndexOf(' '))
-                : subString) + "...";
+        return (useWordBoundary ? subString.substr(0, subString.lastIndexOf(' ')) : subString) + "...";
     };
 
     var app = {
@@ -120,7 +137,7 @@ registerPlugin({
             plugin: {
                 manifest: {
                     running_time: Math.floor(Date.now() / 1000),
-                    version: '0.0.2',
+                    version: '0.0.3',
                     authors: [
                         {
                             name: 'NT5',
@@ -136,6 +153,8 @@ registerPlugin({
                 },
                 command_trigger: config.ly_command_trigger  || 'lyrics',
                 autosearch: config.ly_autosearch,
+                server_groups: config.ly_command_permissionsServerGroups || [],
+                blacklistusers: (typeof config.ly_command_blacklistusers !== 'undefined' && config.ly_command_blacklistusers.length > 0 ? config.ly_command_blacklistusers.split(',') : []),
                 messages: {
                     error: config.ly_error_message || 'Sorry, We don\'t have lyrics for "{song}" song yet'
                 }
@@ -219,20 +238,30 @@ registerPlugin({
             /*
              TODO
              - [BUG] Make sure if works in all cases
-             - [BUG] Word truncate wrong
             */
+
+            var parse_msg = function (options) {
+                if (options.text.length >= maxlength) {
+                    var truncated = options.text.trunc(maxlength, true);
+                    var new_text = options.text.slice((truncated.length - 3), options.text.length);
+
+                    options.chat(truncated);
+                    options.text = new_text;
+                    setTimeout(function () {
+                        parse_msg(options)
+                    }, timeoutdelay);
+                } else {
+                    options.chat(options.text);
+                }
+            };
+
             switch (options.mode) {
                 case 1: // Private client message
                     if (options.client) {
-                        if (options.text.length >= maxlength) {
-                            options.client.chat(options.text.trunc(maxlength));
-                            options.text = options.text.slice(maxlength, options.text.length);
-                            setTimeout(function () {
-                                app.msg(options)
-                            }, timeoutdelay);
-                        } else {
-                            options.client.chat(options.text);
-                        }
+                        parse_msg({
+                            text: options.text,
+                            chat: options.client.chat
+                        });
                     } else {
                         options.mode = 0;
                         app.msg(options);
@@ -240,30 +269,20 @@ registerPlugin({
                     break;
                 case 2: // Channel message
                     if (options.channel) {
-                        if (options.text.length > maxlength) {
-                            options.channel.chat(options.text.trunc(maxlength));
-                            options.text = options.text.slice(maxlength, options.text.length);
-                            setTimeout(function () {
-                                app.msg(options)
-                            }, timeoutdelay);
-                        } else {
-                            options.channel.chat(options.text);
-                        }
+                        parse_msg({
+                            text: options.text,
+                            chat: options.channel.chat
+                        });
                     } else {
                         options.mode = 0;
                         app.msg(options);
                     }
                     break;
                 default: // Server message
-                    if (options.text.length > maxlength) {
-                        options.backend.chat(options.text.trunc(maxlength));
-                        options.text = options.text.slice(maxlength, options.text.length);
-                        setTimeout(function () {
-                            app.msg(options)
-                        }, timeoutdelay);
-                    } else {
-                        options.backend.chat(options.text);
-                    }
+                    parse_msg({
+                        text: options.text,
+                        chat: options.backend.chat
+                    });
                     break;
             }
         },
@@ -402,6 +421,50 @@ registerPlugin({
         var bot = backend.getBotClient();
 
         if (client.isSelf()) return;
+
+        var permission = {
+            config: {
+                group: app.config.plugin.server_groups.map(function (arr) {
+                    return arr.group;
+                }),
+                banned: app.config.plugin.blacklistusers
+            },
+            group: {
+                has_permission: function () {
+                    if (permission.config.group.length > 0) {
+                        var has_permission = false;
+                        client.getServerGroups().forEach(function (group) {
+                            if ((!has_permission) && ((permission.config.group.indexOf(group.name()) > -1) || (permission.config.group.indexOf(group.id()) > -1))) {
+                                has_permission = true;
+                            }
+                        });
+                        return has_permission;
+                    }
+                    return true;
+                }
+            },
+            client: {
+                is_banned: function () {
+                    if (permission.config.banned.length > 0) {
+                        if ((permission.config.banned.indexOf(client.name()) > -1) || (permission.config.banned.indexOf(client.uniqueID()) > -1))
+                            return true;
+                    }
+                    return false;
+                }
+            }
+        };
+        if (!permission.group.has_permission()) {
+            engine.log('{client_name}, not have enough permission to execute script'.format({
+                client_name: client.name()
+            }));
+            return;
+        }
+        if (permission.client.is_banned()) {
+            engine.log('{client_name}, is banned from the bot and can\'t execute commands'.format({
+                client_name: client.name()
+            }));
+            return;
+        }
 
         var cmd, par, text;
         // Regex text: !{command}[-{area}] {text}
