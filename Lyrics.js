@@ -2,7 +2,7 @@ registerPlugin({
     name: 'Lyrics',
     version: '0.0.3',
     engine: '>= 0.9.17',
-    description: 'Search Lyrics from makeitpersonal.co',
+    description: 'Display Lyrics from makeitpersonal.co',
     author: 'NT5',
     vars: [
         {
@@ -30,7 +30,7 @@ registerPlugin({
         },
         {
             name: 'ly_command_permissionsServerGroups',
-            title: 'List of server groups that the bot should accept command and links (ID or Name)',
+            title: 'List of server groups that the bot should accept commands (ID or Name)',
             type: 'array',
             vars: [
                 {
