@@ -1,6 +1,6 @@
 registerPlugin({
     name: 'LastFM Scrobbling',
-    version: '0.0.1',
+    version: '0.0.2',
     engine: '>= 0.9.18',
     description: 'Scrobbling Tracks to LastFM',
     author: 'NT5',
@@ -9,15 +9,17 @@ registerPlugin({
             name: 'lsfm_username',
             title: 'LastFM Username',
             placeholder: 'The last.fm username or email address.',
+            default: 'foo',
             type: 'string'
         },
         {
             name: 'lsfm_password',
             title: 'LastFM password in plain text',
+            default: 'bar',
             type: 'password'
         }
     ]
-}, function (sinusbot, config) {
+}, function (sinusbot, config, manifest) {
 
     var engine = require('engine');
     var event = require('event');
@@ -84,6 +86,18 @@ registerPlugin({
         util: {
             get_timestamp: function () {
                 return Math.floor(Date.now() / 1000);
+            },
+            parse_track: function (track) {
+                var artist = track.tempArtist() || track.artist() || 'Sinus DJ',
+                    title = track.tempTitle() || track.title() || 'Sinus Track';
+
+                return {artist: artist, title: title};
+            },
+            unset_all: function () {
+                var keys = store.getKeys();
+                keys.forEach(function (key) {
+                    store.unset(key);
+                });
             }
         },
         config: {
@@ -93,7 +107,9 @@ registerPlugin({
             },
             plugin: {
                 manifest: {
-                    version: '0.0.1',
+                    name: manifest.name,
+                    version: manifest.version,
+                    description: manifest.description,
                     authors: [
                         {
                             name: 'NT5',
@@ -198,7 +214,7 @@ registerPlugin({
                 },
                 updateNowPlaying: function (artist, title) {
                     var api_key = app.config.api.lastfm.api_key,
-                        client_token = store.get('lastfm_client_token');
+                        client_token = app.callbacks.lastfm.get_store_token();
 
                     app.api.lastfm.postData({
                         api_key: api_key,
@@ -215,7 +231,7 @@ registerPlugin({
                 },
                 scrobble: function (artist, title) {
                     var api_key = app.config.api.lastfm.api_key,
-                        client_token = store.get('lastfm_client_token');
+                        client_token = app.callbacks.lastfm.get_store_token();
 
                     app.api.lastfm.postData({
                         api_key: api_key,
@@ -240,17 +256,24 @@ registerPlugin({
                     var username = app.config.lastfm.username,
                         password = app.config.lastfm.password;
 
-                    store.set('lastfm_client_token', '0');
-                    store.set('lastfm_username', username);
-                    store.set('lastfm_password', password);
+                    var lastfm_client = {
+                        token: 0,
+                        username: username,
+                        password: password
+                    };
 
                     app.api.lastfm.getMobileSession(username, password, function (json) {
                         var token = json.session.key;
-                        store.set('lastfm_client_token', token);
+                        lastfm_client.token = token;
                         engine.log("Login as {username}".format({
                             username: username
                         }));
+                        store.set('lastfm_client', lastfm_client);
                     });
+                },
+                get_store_token: function () {
+                    var lastfm_client = store.get('lastfm_client');
+                    return (lastfm_client ? lastfm_client.token : 0);
                 }
             }
         }
@@ -262,37 +285,34 @@ registerPlugin({
 
         // Version reset
         if (version !== app.config.plugin.manifest.version) {
+            app.util.unset_all();
+            engine.saveConfig({});
+
             engine.log('Your running a different version of the script, resetting configuration, please reconfigure it from web panel.');
             engine.notify('Configure LastFM script');
 
             store.set('script_version', app.config.plugin.manifest.version);
-            engine.saveConfig({});
-            store.unset('lastfm_client_token');
-            store.unset('lastfm_username');
-            store.unset('lastfm_password');
         }
 
         // LastFM loggin
         var username = app.config.lastfm.username,
             password = app.config.lastfm.password;
 
-        if (!store.get('lastfm_client_token') || (username !== store.get('lastfm_username') || password !== store.get('lastfm_password'))) {
+        var lastfm_client = store.get('lastfm_client');
+        if (lastfm_client && (username !== lastfm_client.username || password !== lastfm_client.password)) {
             app.callbacks.lastfm.store_login();
         }
 
     }());
 
     event.on('trackInfo', function (track) {
-        var artist = track.tempArtist() || track.artist();
-        var title = track.tempTitle() || track.title();
-
-        if (title && artist) {
-            app.api.lastfm.updateNowPlaying(artist, title);
-        }
+        var _track = app.util.parse_track(track);
+        app.api.lastfm.updateNowPlaying(_track.artist, _track.title);
     });
 
     event.on('trackEnd', function (track) {
-        app.api.lastfm.scrobble(track.artist(), track.title());
+        var _track = app.util.parse_track(track);
+        app.api.lastfm.scrobble(_track.artist, _track.title);
     });
 
 });
