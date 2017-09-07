@@ -1,6 +1,6 @@
 registerPlugin({
     name: 'Youtube Search',
-    version: '1.3.1',
+    version: '1.3.2',
     engine: '>= 0.9.21',
     description: 'Youtube video search',
     author: 'NT5',
@@ -117,7 +117,7 @@ registerPlugin({
         }
         */
     ]
-}, function (sinusbot, config) {
+}, function (sinusbot, config, manifest) {
 
     var backend = require('backend');
     var engine = require('engine');
@@ -286,7 +286,8 @@ registerPlugin({
             plugin: {
                 manifest: {
                     running_time: Math.floor(Date.now() / 1000),
-                    version: '1.3.1',
+                    version: manifest.version,
+                    description: manifest.description,
                     authors: [
                         {
                             name: 'NT5',
@@ -329,6 +330,7 @@ registerPlugin({
             sinusbot.http({
                 method: options.method,
                 url: options.url,
+                timeout: 6000,
                 headers: options.headers
             }, function (err, res) {
                 if (err || res.statusCode !== 200) {
@@ -464,18 +466,29 @@ registerPlugin({
              TODO
              - [BUG] Make sure if works in all cases
             */
+
+            var parse_msg = function (options) {
+                if (options.text.length >= maxlength) {
+                    var truncated = options.text.trunc(maxlength, true);
+                    var new_text = options.text.slice((truncated.length - 3), options.text.length);
+
+                    options.chat(truncated);
+                    options.text = new_text;
+                    setTimeout(function () {
+                        parse_msg(options)
+                    }, timeoutdelay);
+                } else {
+                    options.chat(options.text);
+                }
+            };
+
             switch (options.mode) {
                 case 1: // Private client message
                     if (options.client) {
-                        if (options.text.length >= maxlength) {
-                            options.client.chat(options.text.trunc(maxlength));
-                            options.text = options.text.slice(maxlength, options.text.length);
-                            setTimeout(function () {
-                                youtube.msg(options)
-                            }, timeoutdelay);
-                        } else {
-                            options.client.chat(options.text);
-                        }
+                        parse_msg({
+                            text: options.text,
+                            chat: options.client.chat
+                        });
                     } else {
                         options.mode = 0;
                         youtube.msg(options);
@@ -483,30 +496,20 @@ registerPlugin({
                     break;
                 case 2: // Channel message
                     if (options.channel) {
-                        if (options.text.length > maxlength) {
-                            options.channel.chat(options.text.trunc(maxlength));
-                            options.text = options.text.slice(maxlength, options.text.length);
-                            setTimeout(function () {
-                                youtube.msg(options)
-                            }, timeoutdelay);
-                        } else {
-                            options.channel.chat(options.text);
-                        }
+                        parse_msg({
+                            text: options.text,
+                            chat: options.channel.chat
+                        });
                     } else {
                         options.mode = 0;
                         youtube.msg(options);
                     }
                     break;
                 default: // Server message
-                    if (options.text.length > maxlength) {
-                        options.backend.chat(options.text.trunc(maxlength));
-                        options.text = options.text.slice(maxlength, options.text.length);
-                        setTimeout(function () {
-                            youtube.msg(options)
-                        }, timeoutdelay);
-                    } else {
-                        options.backend.chat(options.text);
-                    }
+                    parse_msg({
+                        text: options.text,
+                        chat: options.backend.chat
+                    });
                     break;
             }
 
@@ -694,7 +697,7 @@ registerPlugin({
             },
             'playlist': {
                 syntax: '!{cmd}-{par} <playlist-id/playlist-link>',
-                active: true,
+                active: false,
                 hidden: false,
                 admin: false,
                 callback: function (data) {
@@ -753,8 +756,9 @@ registerPlugin({
                     });
 
                     youtube.msg(Object.assign(data, {
-                        text: 'Youtube Search script v{version} by {authors} running on {bot_name} for {running_time}'.format({
+                        text: 'Youtube Search ({description}) script v{version} by {authors} running on {bot_name} for {running_time}'.format({
                             version: youtube.config.plugin.manifest.version,
+                            description: youtube.config.plugin.manifest.description,
                             authors: authors,
                             bot_name: bot.name(),
                             running_time: seconds_to_human(Math.floor(Date.now() / 1000) - youtube.config.plugin.manifest.running_time)
@@ -1228,7 +1232,9 @@ registerPlugin({
         }
     });
 
-    event.on('unload', function () {
+    /*
+    Event.on('unload', function () {
         engine.log(config);
     });
+    */
 });
