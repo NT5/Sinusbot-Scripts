@@ -1,7 +1,8 @@
 registerPlugin({
     name: 'Youtube Search',
-    version: '1.3.2',
+    version: '1.3.3',
     engine: '>= 0.9.21',
+    backends: ["ts3", "discord"],
     description: 'Youtube video search',
     author: 'NT5',
     vars: [
@@ -287,6 +288,7 @@ registerPlugin({
                 manifest: {
                     running_time: Math.floor(Date.now() / 1000),
                     version: manifest.version,
+                    name: manifest.name,
                     description: manifest.description,
                     authors: [
                         {
@@ -461,6 +463,15 @@ registerPlugin({
 
             var maxlength = 800;
             var timeoutdelay = 125;
+
+            switch (engine.getBackend()) {
+                case "discord":
+                    options.mode = 2;
+                    break;
+                case "ts3":
+                default:
+                    break;
+            }
 
             /*
              TODO
@@ -756,9 +767,10 @@ registerPlugin({
                     });
 
                     youtube.msg(Object.assign(data, {
-                        text: 'Youtube Search ({description}) script v{version} by {authors} running on {bot_name} for {running_time}'.format({
+                        text: '{script_name} ({script_description}) script v{version} by {authors} running on {bot_name} for {running_time}'.format({
                             version: youtube.config.plugin.manifest.version,
-                            description: youtube.config.plugin.manifest.description,
+                            script_name: youtube.config.plugin.manifest.name,
+                            script_description: youtube.config.plugin.manifest.description,
                             authors: authors,
                             bot_name: bot.name(),
                             running_time: seconds_to_human(Math.floor(Date.now() / 1000) - youtube.config.plugin.manifest.running_time)
@@ -986,7 +998,7 @@ registerPlugin({
                     switch (youtube.config.plugin.ytdl_action) {
                         case 1: // Download
                             if (queue) {
-                                if (media.enqueueYtdl(videoId)) {
+                                if (media.ytdl(videoId, false) && media.enqueueYt(videoId)) {
                                     engine.log("Download & append to queue: " + videoId);
                                 } else {
                                     engine.log("Cannot enqueue: " + videoId);
@@ -1026,13 +1038,13 @@ registerPlugin({
     // Check for script version
     (function () {
         var store = require('store');
-        var version = store.get('script_version')
+        var version = store.getInstance('script_version')
 
         if (version !== youtube.config.plugin.manifest.version) {
             engine.log('Your running a different version of the script, resetting configuration, please reconfigure it from web panel.');
             engine.notify('Configure youtube search script');
 
-            store.set('script_version', youtube.config.plugin.manifest.version);
+            store.setInstance('script_version', youtube.config.plugin.manifest.version);
             engine.saveConfig({});
         }
 
