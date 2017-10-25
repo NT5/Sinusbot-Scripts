@@ -1,7 +1,8 @@
 registerPlugin({
     name: 'Lyrics',
-    version: '0.0.3',
+    version: '0.0.4',
     engine: '>= 0.9.17',
+    backends: ["ts3", "discord"],
     description: 'Display Lyrics from makeitpersonal.co',
     author: 'NT5',
     vars: [
@@ -20,7 +21,7 @@ registerPlugin({
             name: 'ly_error_message',
             title: 'Message format when no lyrics found',
             type: 'multiline',
-            placeholder: 'Sorry, We don\'t have lyrics for "{song}" song yet'
+            placeholder: 'Sorry, We don\'t have lyrics for "{artist} | {song}" song yet'
         },
         {
             name: 'ly_command_blacklistusers',
@@ -42,7 +43,7 @@ registerPlugin({
             ]
         }
     ]
-}, function (sinusbot, config) {
+}, function (sinusbot, config, manifest) {
 
     var backend = require('backend');
     var engine = require('engine');
@@ -137,7 +138,9 @@ registerPlugin({
             plugin: {
                 manifest: {
                     running_time: Math.floor(Date.now() / 1000),
-                    version: '0.0.3',
+                    version: manifest.version,
+                    name: manifest.name,
+                    description: manifest.description,
                     authors: [
                         {
                             name: 'NT5',
@@ -156,12 +159,12 @@ registerPlugin({
                 server_groups: config.ly_command_permissionsServerGroups || [],
                 blacklistusers: (typeof config.ly_command_blacklistusers !== 'undefined' && config.ly_command_blacklistusers.length > 0 ? config.ly_command_blacklistusers.split(',') : []),
                 messages: {
-                    error: config.ly_error_message || 'Sorry, We don\'t have lyrics for "{song}" song yet'
+                    error: config.ly_error_message || 'Sorry, We don\'t have lyrics for "{artist} | {song}" song yet'
                 }
             },
             api: {
                 makeitpersonal: {
-                    url: 'http://makeitpersonal.co/lyrics?artist={artist}&title={title}'
+                    url: 'https://makeitpersonal.co/lyrics?artist={artist}&title={title}'
                 }
             }
         },
@@ -216,6 +219,7 @@ registerPlugin({
                             artist: options.artist.replace(/ /g, '+'),
                             title: options.title.replace(/ /g, '+')
                         }),
+                        headers: {},
                         parse: false,
                         callback: options.callback,
                         error_callback: options.error_callback
@@ -234,6 +238,15 @@ registerPlugin({
 
             var maxlength = 800;
             var timeoutdelay = 125;
+
+            switch (engine.getBackend()) {
+                case "discord":
+                    options.mode = 2;
+                    break;
+                case "ts3":
+                default:
+                    break;
+            }
 
             /*
              TODO
@@ -288,7 +301,7 @@ registerPlugin({
         },
         commands: {
             'lyrics': {
-                syntax: '!{cmd}-[{valids}] {artits} - {song name}',
+                syntax: 'Use: !{cmd}-[{valids}] {artits} - {song name}',
                 active: true,
                 hidden: true,
                 callback: function (data) {
@@ -339,8 +352,10 @@ registerPlugin({
                     });
 
                     app.msg(Object.assign(data, {
-                        text: 'Lyrics script v{version} by {authors} running on {bot_name} for {running_time} powered by makeitpersonal.co'.format({
+                        text: '{script_name} script ({script_description}) v{version} by {authors} running on {bot_name} for {running_time} - powered by makeitpersonal.co'.format({
                             version: app.config.plugin.manifest.version,
+                            script_name: app.config.plugin.manifest.name,
+                            script_description: app.config.plugin.manifest.description,
                             authors: authors,
                             bot_name: bot.name(),
                             running_time: app.util.seconds_to_human(Math.floor(Date.now() / 1000) - app.config.plugin.manifest.running_time)
@@ -369,7 +384,8 @@ registerPlugin({
                     callback: function (lyric) {
                         if (lyric === 'Sorry, We don\'t have lyrics for this song yet.') {
                             data.msg(app.config.plugin.messages.error.format({
-                                song: data.title
+                                song: data.title,
+                                artist: data.artist
                             }));
                         } else {
                             data.msg(lyric);
@@ -386,13 +402,13 @@ registerPlugin({
     // Check for script version
     (function () {
         var store = require('store');
-        var version = store.get('script_version')
+        var version = store.getInstance('script_version');
 
         if (version !== app.config.plugin.manifest.version) {
             engine.log('Your running a different version of the script, resetting configuration, please reconfigure it from web panel.');
             engine.notify('Configure Lyrics script');
 
-            store.set('script_version', app.config.plugin.manifest.version);
+            store.setInstance('script_version', app.config.plugin.manifest.version);
             engine.saveConfig({});
         }
 
