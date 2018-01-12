@@ -301,7 +301,7 @@ registerPlugin({
                     // !{command}[-{area}] [{text}]
                     cmd: /^!(\w+)(?:-(\w+))?(?:\s(.+))?/,
                     // {videId}
-                    youtube: /(?:http|https):\/\/www\.(?:youtube\.com|youtu\.be)\/watch\?v=([\w-]+)/
+                    youtube: /(?:http(?:s)??\:\/\/)?(?:www\.)?(?:(?:youtube\.com\/watch\?v=)|(?:youtu.be\/))([\w-]+)/
                 },
                 command_trigger: config.command_trigger || 'youtube',
                 catch_url: config.yt_catchurl,
