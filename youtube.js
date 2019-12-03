@@ -1,10 +1,11 @@
 registerPlugin({
     name: 'Youtube Search',
-    version: '1.3.3',
-    engine: '>= 0.9.21',
+    version: '1.3.4',
+    engine: '>= 1.0.0',
     backends: ["ts3", "discord"],
     description: 'Youtube video search',
     author: 'NT5',
+    requiredModules: ["http"],
     vars: [
         {
             name: 'yt_apikey',
@@ -123,6 +124,7 @@ registerPlugin({
     var backend = require('backend');
     var engine = require('engine');
     var event = require('event');
+    var http = require("http");
 
     // Script utils
 
@@ -301,7 +303,7 @@ registerPlugin({
                     // !{command}[-{area}] [{text}]
                     cmd: /^!(\w+)(?:-(\w+))?(?:\s(.+))?/,
                     // {videId}
-                    youtube: /(?:http(?:s)??\:\/\/)?(?:www\.)?(?:(?:youtube\.com\/watch\?v=)|(?:youtu.be\/))([\w-]+)/
+                    youtube: /(?:http|https):\/\/www\.(?:youtube\.com|youtu\.be)\/watch\?v=([\w-]+)/
                 },
                 command_trigger: config.command_trigger || 'youtube',
                 catch_url: config.yt_catchurl,
@@ -325,11 +327,7 @@ registerPlugin({
             options.callback = options.callback || function (err, res) { engine.log(res); };
             options.error_callback = options.error_callback || function (err, res) { engine.log(err); };
 
-            /*
-             TODO
-              - [ENH] Port to new script engine
-            */
-            sinusbot.http({
+            http.simpleRequest({
                 method: options.method,
                 url: options.url,
                 timeout: 6000,
@@ -498,7 +496,7 @@ registerPlugin({
                     if (options.client) {
                         parse_msg({
                             text: options.text,
-                            chat: options.client.chat
+                            chat: options.client.chat.bind(options.client)
                         });
                     } else {
                         options.mode = 0;
@@ -509,7 +507,7 @@ registerPlugin({
                     if (options.channel) {
                         parse_msg({
                             text: options.text,
-                            chat: options.channel.chat
+                            chat: options.channel.chat.bind(options.channel)
                         });
                     } else {
                         options.mode = 0;
@@ -519,7 +517,7 @@ registerPlugin({
                 default: // Server message
                     parse_msg({
                         text: options.text,
-                        chat: options.backend.chat
+                        chat: options.backend.chat.bind(options.backend)
                     });
                     break;
             }
@@ -1243,10 +1241,4 @@ registerPlugin({
             }
         }
     });
-
-    /*
-    Event.on('unload', function () {
-        engine.log(config);
-    });
-    */
 });
