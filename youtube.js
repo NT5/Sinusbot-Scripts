@@ -706,10 +706,12 @@ registerPlugin({
             },
             'playlist': {
                 syntax: '!{cmd}-{par} <playlist-id/playlist-link>',
-                active: false,
+                active: true,
                 hidden: false,
                 admin: false,
                 callback: function (data) {
+                    var media = require('media');
+
                     data = (typeof data !== "object") ? {} : data;
 
                     var msg = function (text) {
@@ -718,13 +720,13 @@ registerPlugin({
                         }));
                     };
 
-                    var playListId = data.text; // PLer7LLaCGeKcmzK7V8rK2WqAj4kKligOW
+                    var playListId = (/(?:http|https):\/\/www\.(?:youtube\.com|youtu\.be)\/(?:watch\?v=(?:[\w-]{11})&list=|playlist\?list=)([\w-]+)/.exec(data.text))[1]; // PLer7LLaCGeKcmzK7V8rK2WqAj4kKligOW
 
                     youtube.api.playlist({
                         playlistId: playListId,
                         callback: function (playlist) {
                             var item = playlist.items[0];
-                            msg('{0} by {1} id: {2}'.format(
+                            msg('{0} by {1} link: https://www.youtube.com/playlist?list={2}'.format(
                                 item.snippet.title,
                                 item.snippet.channelTitle,
                                 item.id
@@ -736,8 +738,7 @@ registerPlugin({
                                 callback: function (pl) {
                                     var media = require('media');
                                     pl.items.forEach(function (item) {
-                                        msg(item.contentDetails.videoId);
-                                        // Media.enqueueYt(item.contentDetails.videoId);
+                                        media.enqueueYt(item.contentDetails.videoId);
                                     });
                                 }
                             });
