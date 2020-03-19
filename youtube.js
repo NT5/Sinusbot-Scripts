@@ -8,9 +8,17 @@ registerPlugin({
     requiredModules: ["http"],
     vars: [
         {
-            name: 'yt_apikey',
+            name: 'yt_apikeys',
             title: 'API KEY (https://console.developers.google.com/project)',
-            type: 'string'
+            type: 'array',
+            vars: [
+                {
+                    name: 'key',
+                    type: 'string',
+                    indent: 2,
+                    placeholder: 'Youtube API'
+                }
+            ]
         },
         {
             name: 'ytdl_action',
@@ -275,12 +283,23 @@ registerPlugin({
         return str.join("&");
     }
 
+    function getRandomKey (exclude = '') {
+        if (!config.yt_apikeys) { return 0; }
+
+        var selectable_keys = config.yt_apikeys.filter(function(value, index, array) {
+            return value != exclude;
+        });
+        engine.log(selectable_keys);
+        engine.log(selectable_keys[Math.floor(Math.random() * selectable_keys.length)].key);
+        return selectable_keys[Math.floor(Math.random() * selectable_keys.length)].key; // Math.floor(Math.random() * (max - min)) + min
+    }
+
     // Plugin Methods
     var youtube = {
         config: {
             api: {
                 url: "https://www.googleapis.com/youtube/v3/{path}?{fields}",
-                key: config.yt_apikey || 0,
+                key: getRandomKey() || 0,
                 maxresults: (function () {
                     var mr = parseInt(config.yt_maxresults);
                     return (mr >= 1 && mr <= 50 ? mr : 1);
@@ -296,6 +315,10 @@ registerPlugin({
                         {
                             name: 'NT5',
                             role: 'Main Dev'
+                        },
+                        {
+                            name: 'Saborknight',
+                            role: 'Contributor'
                         }
                     ]
                 },
@@ -788,8 +811,8 @@ registerPlugin({
 
                     var old_key = youtube.config.api.key;
 
-                    youtube.config.api.key = data.text;
-                    config.yt_apikey = youtube.config.api.key;
+                    youtube.config.api.key = data.text == '' ? getRandomKey() : data.text;
+                    config.yt_apikeys = youtube.config.api.key;
                     engine.saveConfig(config);
 
                     youtube.msg(Object.assign(data, {
