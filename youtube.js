@@ -8,9 +8,17 @@ registerPlugin({
     requiredModules: ["http"],
     vars: [
         {
-            name: 'yt_apikey',
+            name: 'yt_apikeys',
             title: 'API KEY (https://console.developers.google.com/project)',
-            type: 'string'
+            type: 'array',
+            vars: [
+                {
+                    name: 'key',
+                    type: 'string',
+                    indent: 2,
+                    placeholder: 'Youtube API'
+                }
+            ]
         },
         {
             name: 'ytdl_action',
@@ -45,8 +53,14 @@ registerPlugin({
             placeholder: '1'
         },
         {
+            name: 'yt_playlistdelay',
+            title: 'The delay between enqueueing songs in a playlist (in seconds)',
+            type: 'number',
+            placeholder: '10'
+        },
+        {
             name: 'yt_maxduration',
-            title: 'Max youtube video duration for playback (in seconds) default 900seg (15min)',
+            title: 'Max youtube video duration for playback (in seconds) default 900sec (15min)',
             type: 'number',
             placeholder: '900'
         },
@@ -280,7 +294,8 @@ registerPlugin({
         config: {
             api: {
                 url: "https://www.googleapis.com/youtube/v3/{path}?{fields}",
-                key: config.yt_apikey || 0,
+                key: 0,
+                playlistdelay: config.yt_playlistdelay || 10,
                 maxresults: (function () {
                     var mr = parseInt(config.yt_maxresults);
                     return (mr >= 1 && mr <= 50 ? mr : 1);
@@ -296,6 +311,10 @@ registerPlugin({
                         {
                             name: 'NT5',
                             role: 'Main Dev'
+                        },
+                        {
+                            name: 'Saborknight',
+                            role: 'Contributor'
                         }
                     ]
                 },
@@ -345,6 +364,19 @@ registerPlugin({
                     options.callback(json);
                 }
             });
+        },
+        setRandomKey: function (exclude = '') {
+            if (!config.yt_apikeys) { return 0; }
+            if (config.yt_apikeys.length <= 0) { return 0; }
+
+            var selectable_keys = config.yt_apikeys.filter(function(value, index, array) {
+                return (value != exclude) && (value != youtube.config.api.key);
+            });
+
+            var selected_key = selectable_keys[Math.floor(Math.random() * selectable_keys.length)].key;
+            engine.log('Key loaded: ' + selected_key);
+            youtube.config.api.key = selected_key;
+            return selected_key; // Math.floor(Math.random() * (max - min)) + min
         },
         api: {
             search: function (options) {
@@ -734,12 +766,32 @@ registerPlugin({
 
                             youtube.api.playlistItems({
                                 playlistId: item.id,
-                                maxResults: 50,
+                                maxResults: youtube.config.api.maxResults,
                                 callback: function (pl) {
-                                    var media = require('media');
-                                    pl.items.forEach(function (item) {
-                                        media.enqueueYt(item.contentDetails.videoId);
-                                    });
+                                    let media = require('media');
+
+                                    let index = 0;
+                                    let items = pl.items;
+
+                                    // Immediately enqueue the first song
+                                    media.enqueueYt(items[0].contentDetails.videoId);
+                                    items.shift();
+
+                                    // And enqueue the rest with 10 second delays
+                                    let intervalID = setInterval(() => {
+                                        let single_item = items[index];
+
+                                        if (!single_item) {
+                                            clearInterval(intervalID);
+                                            engine.log('Interval cleared: ' + intervalID);
+                                            return;
+                                        }
+
+                                        engine.log('index: ' + index + '; ' + items.length + '; ' + single_item);
+                                        media.enqueueYt(single_item.contentDetails.videoId);
+                                        youtube.setRandomKey();
+                                        index++;
+                                    }, youtube.config.api.playlistdelay * 1000);
                                 }
                             });
                         }
@@ -777,8 +829,8 @@ registerPlugin({
                     }));
                 }
             },
-            'setkey': {
-                syntax: 'Syntax !{cmd}-{par} <key>',
+            'resetkey': {
+                syntax: 'Syntax !{cmd}-{par}',
                 active: true,
                 hidden: false,
                 admin: true,
@@ -786,16 +838,11 @@ registerPlugin({
                     data = (typeof data !== "object") ? {} : data;
                     data.mode = 1;
 
-                    var old_key = youtube.config.api.key;
-
-                    youtube.config.api.key = data.text;
-                    config.yt_apikey = youtube.config.api.key;
-                    engine.saveConfig(config);
+                    var key = youtube.setRandomKey(youtube.config.api.key);
 
                     youtube.msg(Object.assign(data, {
-                        text: 'Api Key renewed from {old_key} to {key}'.format({
-                            key: youtube.config.api.key,
-                            old_key: old_key
+                        text: 'Api Key reset to {key}'.format({
+                            key: youtube.config.api.key
                         })
                     }));
                 }
@@ -1118,6 +1165,7 @@ registerPlugin({
             return;
         }
 
+        youtube.setRandomKey();
         var main_cmd = youtube.commands['youtube'];
         var msg = {
             mode: ev.mode,
