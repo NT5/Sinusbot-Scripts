@@ -829,6 +829,30 @@ registerPlugin({
                     }));
                 }
             },
+            'clear': {
+                syntax: false,
+                active: true,
+                hidden: false,
+                admin: false,
+                callback: function (data) {
+                    var media = require('media');
+
+                    let message = '';
+                    if (media.clearQueue() && media.stop()) {
+                        media.clearIdleTrack();
+
+                        message = 'Queue has been cleared!';
+                        engine.log('Queue cleared!');
+                    } else {
+                        message = 'Could not clear the queue, please do so manually.';
+                        engine.log('Queue failed to clear');
+                    }
+
+                    youtube.msg(Object.assign(data, {
+                        text: message
+                    }));
+                }
+            },
             'resetkey': {
                 syntax: 'Syntax !{cmd}-{par}',
                 active: true,
